@@ -1,0 +1,1458 @@
+{
+  "name": "Enviar foto",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        20048,
+        21056
+      ],
+      "id": "3e142b65-909d-4e9c-b6bc-a64423dc03a4",
+      "name": "Telegram Trigger",
+      "webhookId": "b81bc5a9-d26d-49c5-a216-b1aaf7cb81c3",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ !!$json.message.photo }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "07896ef2-b07c-45c8-ba24-3f74d94295ce"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3fb4d5ca-a2fc-479a-8fab-901a70c36327",
+                    "leftValue": "={{ !!$json.message.location }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2c7fd01d-c347-4860-9e74-6a6a1bc68723",
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/cancelar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1f65ea0f-5075-443b-9d82-67dae959f613",
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/ayuda",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "53f84e86-bdb3-4b53-b83a-a15a68ea3d09",
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/start",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        20272,
+        20416
+      ],
+      "id": "34e34f97-bab9-4cf7-9966-797a86051a85",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM reportes WHERE chat_id = {{ $json.message.chat.id }} AND estado = 'esperando_ubicacion';\nINSERT INTO reportes (chat_id, foto_id, estado, telegram_username)\nVALUES (\n  {{ $json.message.chat.id }},\n  '{{ $json.message.photo[$json.message.photo.length - 1].file_id }}',\n  'esperando_ubicacion',\n  '{{ $json.message.from.username || $json.message.from.first_name }}'\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        20496,
+        20096
+      ],
+      "id": "aebcdcaf-5746-474a-bbf6-6b7252a5f1a0",
+      "name": "Foto",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reportes \nSET latitud = {{ $json.message.location.latitude }},\n    longitud = {{ $json.message.location.longitude }},\n    estado = 'completado'\nWHERE chat_id = {{ $json.message.chat.id }} \n  AND estado = 'esperando_ubicacion'\nRETURNING *;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        20496,
+        20288
+      ],
+      "id": "56ccc362-fc3e-415e-a5c4-88bbe68a3550",
+      "name": "Ubicacion",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $node[\"Ubicacion\"].json.foto_id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20720,
+        20288
+      ],
+      "id": "4c0a58af-c420-4ec1-86d3-0c685b26fcd0",
+      "name": "Descargar foto",
+      "webhookId": "ed906f03-8104-4e56-8be7-d6b11c02c3b8",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "Reporte cancelado, vuelve a enviar otra foto.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20720,
+        20480
+      ],
+      "id": "5e4c5a7c-2fbe-4c53-8dd8-5e9b6f94c063",
+      "name": "mensaje de cancelacion de foto",
+      "webhookId": "2821469a-ae77-419a-a9e6-c42a8c5933da",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "¡Foto recibida! 📸 Ahora mándame tu ubicación para completar el reporte de Vision Qro.",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🚫 Cancelar reporte",
+                    "additionalFields": {
+                      "callback_data": "cancelar_reporte"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20720,
+        20096
+      ],
+      "id": "b23d0b72-1c26-4221-9414-eb24d9e6b74f",
+      "name": "foto recibida",
+      "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://vision_qro_ai:8000/predict",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        20944,
+        20288
+      ],
+      "id": "487edef5-9caf-438a-b223-5ef3e8a2d677",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=✅ *Reporte registrado* en el mapa de Vision Qro.\n\n{{ $node[\"HTTP Request\"].json.mensaje_usuario }}\n\n{{ $node[\"HTTP Request\"].json.categoria === 'pendiente' ? '⚠️ Necesitamos que clasifiques este objeto manualmente.' : '¿Es correcto el análisis?' }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $node[\"HTTP Request\"].json.categoria === 'pendiente' ? '✍️ Clasificar manualmente' : '✅ Es correcto' }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $node[\"HTTP Request\"].json.categoria === 'pendiente' ? 'conf_err' : 'conf_ok' }}"
+                    }
+                  },
+                  {
+                    "text": "={{ $node[\"HTTP Request\"].json.categoria === 'pendiente' ? '❌ Descartar reporte' : '❌ Hay un error' }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $node[\"HTTP Request\"].json.categoria === 'pendiente' ? 'cancelar_reporte' : 'conf_err' }}"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🚫 Cancelar reporte",
+                    "additionalFields": {
+                      "callback_data": "cancelar_reporte"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        21392,
+        20288
+      ],
+      "id": "aab23991-512b-4330-b79e-3ffbd9719980",
+      "name": "Reporte Completado",
+      "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=🤖 Soporte de Vision Qro  \n\nPara generar un reporte, sigue estos pasos:   \n\n\n1. Envía una foto clara del problema (bache, basura, etc.) usando el icono del clip 📎 en la sección de \"Galeria\".  \n\n2. Envía tu ubicación actual usando nuevamente el icono del clip 📎 en la sección de \"ubicación\", enviar ubicación selecionada (no envies ubicación en tiempo real, envía la que aparece con circulo azul).      \n\n3. Espera el análisis de nuestra IA basada en YOLO12 de Ultralylics.  \n\n\nEscribe /cancelar despues de enviar una foto por si te equivocas o deseas cambiar de foto.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20496,
+        20672
+      ],
+      "id": "3b3da068-aaca-45ee-91af-9dc8be55e200",
+      "name": "/ayuda",
+      "webhookId": "2821469a-ae77-419a-a9e6-c42a8c5933da",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM reportes \nWHERE chat_id = {{ $json.message.chat.id }} \n  AND estado != 'completado';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        20496,
+        20480
+      ],
+      "id": "4de89dad-14be-4321-98b3-9ca300a622b1",
+      "name": "/cancelar",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "aa11bb22-cc33-dd44-ee55-ff6677889900",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "cancelar_reporte",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "conf_ok",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "8d86f368-b6d0-482e-9991-0357d0bcc25c"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1ac45654-4f3c-4abc-b312-1a6e412688e4",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "conf_err",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0c0e40c4-4384-4ea6-a56b-061be53c6855",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "fix_bache",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6071bd89-b4b8-4687-bef1-097b288724d8",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "fix_basura",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "58c87f48-e1fd-4606-b0ad-7c41483e52a3",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "size_p",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5155c3b6-7582-4262-922d-0dae29010c49",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "size_m",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "429319e8-a828-4a47-b7e1-35a92dc3fdf1",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "size_g",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9d23dc1a-fb62-4e4c-98d7-cbea89e5edf9",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "mat_org",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "30c3b5a8-fd61-481d-b12a-88a449109ac8",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "mat_inorg",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8d37b308-839e-451a-8fc4-b1c267cceee5",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "mat_otro",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "174a428d-ccb2-417b-acb9-86c4e5215354",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "cancelar_reporte_inline",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        20272,
+        21376
+      ],
+      "id": "5d0e4056-620a-49b5-8566-afbe2152a905",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reportes \nSET estado = 'validado' \nWHERE chat_id = {{ $json.callback_query.message.chat.id }} \nAND estado = 'completado';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        20496,
+        21056
+      ],
+      "id": "415bdfb0-9b59-4098-b42f-f813e7cab066",
+      "name": "Validado",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
+        "text": "¡Gracias por validar!",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20720,
+        21056
+      ],
+      "id": "c000fe58-9036-4718-b6bb-fa89af710464",
+      "name": "confirmacion",
+      "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reportes \nSET estado = 'esperando_nombre' \nWHERE chat_id = {{ $json.callback_query.message.chat.id }} \nAND estado = 'completado';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        20496,
+        21248
+      ],
+      "id": "721d8480-83d4-4090-a1b6-739ab6090062",
+      "name": "Correcion",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
+        "text": "Perfecto. Ahora, ¿qué es lo que aparece realmente en la foto?",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🕳️ Bache",
+                    "additionalFields": {
+                      "callback_data": "fix_bache"
+                    }
+                  },
+                  {
+                    "text": "🗑️ Basura",
+                    "additionalFields": {
+                      "callback_data": "fix_basura"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🚫 Cancelar reporte",
+                    "additionalFields": {
+                      "callback_data": "cancelar_reporte_inline"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20944,
+        20864
+      ],
+      "id": "c84d4d51-4525-4cfe-81e5-c5bf3a5c5399",
+      "name": "solicitar clasificacion",
+      "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
+        "text": "¿Cuál es la categoría del reporte de basura?",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🍎 Orgánico",
+                    "additionalFields": {
+                      "callback_data": "mat_org"
+                    }
+                  },
+                  {
+                    "text": "♻️ Inorgánico",
+                    "additionalFields": {
+                      "callback_data": "mat_inorg"
+                    }
+                  },
+                  {
+                    "text": "🏗️ Otros (Escombro/Animal)",
+                    "additionalFields": {
+                      "callback_data": "mat_otro"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🚫 Cancelar reporte",
+                    "additionalFields": {
+                      "callback_data": "cancelar_reporte_inline"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20496,
+        21824
+      ],
+      "id": "d5605c1b-6812-45c0-84cf-fcfd8637e680",
+      "name": "Categoria basura",
+      "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
+        "text": "=¿De qué tamaño es el bache?",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "Pequeño",
+                    "additionalFields": {
+                      "callback_data": "size_p"
+                    }
+                  },
+                  {
+                    "text": "Mediano",
+                    "additionalFields": {
+                      "callback_data": "size_m"
+                    }
+                  },
+                  {
+                    "text": "Grande",
+                    "additionalFields": {
+                      "callback_data": "size_g"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🚫 Cancelar reporte",
+                    "additionalFields": {
+                      "callback_data": "cancelar_reporte_inline"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20496,
+        21632
+      ],
+      "id": "84088ffe-8a17-43fc-861b-58cc3f12aa17",
+      "name": "Tamaño bache",
+      "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reportes \nSET subclase = '{{ $json.callback_query.data.split(\"_\")[1] }}', \n    estado = 'corregido_por_humano',\n    confianza = NULL,\n    telegram_username = '{{ $json.callback_query.from.username || $json.callback_query.from.first_name }}'\nWHERE chat_id = {{ $json.callback_query.message.chat.id }} \nAND (estado = 'pendiente_correccion' OR estado = 'en_subclasificacion');",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        20496,
+        22016
+      ],
+      "id": "b970e29c-8d75-437e-8b8b-2228d332443f",
+      "name": "Correcion1",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
+        "text": "¡Gracias por validar! Esto ayuda a entrenar mi cerebro de IA. 🧠",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20720,
+        22016
+      ],
+      "id": "688dd67b-f4e0-4716-a0ea-92dfdfd84aa2",
+      "name": "confirmacion1",
+      "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reportes\nSET clase_corregida = '{{ $node[\"HTTP Request\"].json.clase }}',\n    confianza        = {{ $node[\"HTTP Request\"].json.confianza }},\n    subclase         = NULLIF('{{ $node[\"HTTP Request\"].json.categoria }}', 'pendiente'),\n    telegram_username = '{{ $('Telegram Trigger').item.json.message.from.username || $('Telegram Trigger').item.json.message.from.first_name }}',\n    foto_url         = CASE\n        WHEN '{{ $node[\"Descargar foto\"].json.file_path }}' NOT IN ('undefined','null','')\n        THEN '{{ $node[\"Descargar foto\"].json.file_path }}'\n        ELSE foto_id\n    END\nWHERE chat_id = {{ $('Telegram Trigger').item.json.message.chat.id }}\n  AND estado = 'completado';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        21168,
+        20288
+      ],
+      "id": "e842b901-eab9-4741-847a-f68e8b38feff",
+      "name": "Guardar resultado",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM reportes\nWHERE chat_id = {{ $json.callback_query.message.chat.id }}\n  AND estado NOT IN ('validado', 'corregido_por_humano');\nSELECT 'cancelado' AS resultado;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        20496,
+        21440
+      ],
+      "id": "4356c658-ea6e-4972-a8bf-fa4b6e46738f",
+      "name": "Cancelar inline",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
+        "text": "🚫 Reporte cancelado. Puedes enviar una nueva foto cuando quieras.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20720,
+        21440
+      ],
+      "id": "9984942b-9db6-4d39-ba0d-dfe4597c9a44",
+      "name": "Mensaje cancelar inline",
+      "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
+        "text": "¡Entendido! Ayúdame a mejorar mi puntería. 🎯\nPor favor, escribe el **nombre del objeto** que aparece en la foto:",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🚫 Cancelar reporte",
+                    "additionalFields": {
+                      "callback_data": "cancelar_reporte_inline"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20720,
+        21248
+      ],
+      "id": "09ef5e60-bc83-40d6-ae13-d05ee98b0a01",
+      "name": "Solicitar nombre objeto",
+      "webhookId": "dc3353d6-b948-471a-93b7-173b5e3cb091",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id FROM reportes WHERE chat_id = {{ $json.message?.chat?.id || 0 }} AND estado = 'esperando_nombre' LIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        20496,
+        20864
+      ],
+      "id": "56d32a37-cc4f-4507-8e79-ce4464e30a19",
+      "name": "Check estado nombre",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reportes SET clase_corregida = '{{ $(\"Telegram Trigger\").item.json.message.text }}', estado = 'pendiente_correccion', telegram_username = '{{ $(\"Telegram Trigger\").item.json.message.from.username || $(\"Telegram Trigger\").item.json.message.from.first_name }}' WHERE chat_id = {{ $(\"Telegram Trigger\").item.json.message.chat.id }} AND estado = 'esperando_nombre';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        20720,
+        20864
+      ],
+      "id": "354d9982-2557-45d4-9920-8fd99ef21d85",
+      "name": "Update nombre objeto",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Foto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ubicacion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "/cancelar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "/ayuda",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "/ayuda",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check estado nombre",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ubicacion": {
+      "main": [
+        [
+          {
+            "node": "Descargar foto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Foto": {
+      "main": [
+        [
+          {
+            "node": "foto recibida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar foto": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Guardar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "/cancelar": {
+      "main": [
+        [
+          {
+            "node": "mensaje de cancelacion de foto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Cancelar inline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Correcion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tamaño bache",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Categoria basura",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Correcion1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Correcion1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Correcion1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Correcion1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Correcion1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Correcion1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cancelar inline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validado": {
+      "main": [
+        [
+          {
+            "node": "confirmacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Correcion": {
+      "main": [
+        [
+          {
+            "node": "Solicitar nombre objeto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Correcion1": {
+      "main": [
+        [
+          {
+            "node": "confirmacion1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar resultado": {
+      "main": [
+        [
+          {
+            "node": "Reporte Completado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancelar inline": {
+      "main": [
+        [
+          {
+            "node": "Mensaje cancelar inline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check estado nombre": {
+      "main": [
+        [
+          {
+            "node": "Update nombre objeto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update nombre objeto": {
+      "main": [
+        [
+          {
+            "node": "solicitar clasificacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d1e3b3a6-7be9-4f5b-8994-2c9e7485e548",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2a2f8a06cc2f65d91de9fa1ee89b54f8a5e4388642af9ac9fadada25ae8c8741"
+  },
+  "id": "oPyUlGi7WOAKaQA3",
+  "tags": []
+}

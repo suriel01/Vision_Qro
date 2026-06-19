@@ -1,0 +1,90 @@
+services:
+  # 1. BASE DE DATOS ESPACIAL
+  postgres:
+    image: postgis/postgis:15-3.4
+    container_name: vision_qro_db
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # init.sql corre SOLO cuando la DB se inicializa por primera vez (datos vacíos)
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - qro_network
+
+  # 2. ORQUESTADOR
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: vision_qro_n8n
+    restart: always
+    environment:
+      - DB_TYPE=postgresdb
+      - N8N_PROXY_HOPS=1
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_HOST=md.comcloudhosting.net
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
+    networks:
+      - qro_network
+
+  # 3. TÚNEL SEGURO
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: vision_qro_tunnel
+    restart: always
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - n8n
+    networks:
+      - qro_network
+
+  # 4. CEREBRO AI
+  ai_brain:
+    build: ./ai_service
+    container_name: vision_qro_ai
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=postgres
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      # Ruta del modelo YOLO (persistida en volumen yolo_models)
+      - YOLO_MODEL_PATH=models/yolo12n.pt
+      # Token del bot de Telegram (para construir URLs de fotos)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    volumes:
+      - n8n_data:/n8n_data
+      # Volumen persistente: el modelo YOLO se descarga UNA sola vez
+      - yolo_models:/app/models
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    networks:
+      - qro_network
+
+volumes:
+  postgres_data:
+  n8n_data:
+  # Persiste el modelo YOLO entre rebuilds del container
+  yolo_models:
+
+networks:
+  qro_network:
+    driver: bridge
