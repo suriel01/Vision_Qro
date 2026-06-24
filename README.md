@@ -144,8 +144,12 @@ crontab -e
 0 3 * * * /home/jetson/Vision_Qro/utils/backup_db.sh >> /home/jetson/Vision_Qro/backups/backup.log 2>&1
 ```
 
-### 📡 Dynamic Host Resolution
-The frontend's network request target dynamically adapts to `window.location.hostname` instead of being locked to a local `localhost` IP. This allows multiple operators in the local network to connect directly to the dashboard hosted on the Jetson Orin Nano's IP address.
+### 📡 Public Exposure via Cloudflare & Strict CORS
+The frontend and backend are designed to be exposed to the internet securely via **Cloudflare Tunnels**. You should configure two Public Hostnames in your Cloudflare Zero Trust dashboard:
+- `mapa.yourdomain.com` pointing to `http://vision_qro_frontend:80`
+- `api.yourdomain.com` pointing to `http://vision_qro_ai:8000`
+
+The system automatically injects the public API URL into the React build process, ensuring seamless dynamic resolution for visitors, while the FastAPI backend enforces strict CORS policies rejecting requests from unauthorized domains.
 
 ---
 
@@ -177,8 +181,10 @@ WEBHOOK_URL=https://your-domain-or-tunnel.cf/webhooks/telegram
 # Cloudflare Tunnel Token
 CLOUDFLARE_TUNNEL_TOKEN=your_cloudflare_tunnel_token
 
-# CORS Origins (Allowed Frontend URL)
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+# CORS Origins & Public Domains
+PUBLIC_FRONTEND_URL=https://mapa.yourdomain.com
+PUBLIC_API_URL=https://api.yourdomain.com
+CORS_ORIGINS=${PUBLIC_FRONTEND_URL}
 
 # Admin Security Setup
 ADMIN_PASSWORD=your_secure_admin_password

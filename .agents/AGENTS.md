@@ -38,8 +38,9 @@ El proyecto se encuentra activo y en producción en una placa Jetson Orin Nano.
 
 ---
 
-## 📡 6. Comunicación entre Frontend y Backend
-*   **Resolución de Host Dinámica:** En el código del frontend, la URL de la API debe resolverse dinámicamente usando `window.location.hostname` cuando no se use un puerto de desarrollo local. Esto permite a múltiples clientes ver el mapa desde sus computadoras/tablets accediendo a la IP local de la Jetson.
+## 📡 6. Comunicación y Exposición Segura en Internet
+*   **Aislamiento y CORS Estricto:** La exposición pública del Dashboard a través de dominios en la nube (ej. túneles de Cloudflare) debe usar dos subdominios separados (Frontend y API). El backend debe forzar la política CORS de manera estricta usando la variable de entorno `CORS_ORIGINS`, rechazando peticiones que no vengan exclusivamente del frontend oficial.
+*   **Resolución Dinámica de API:** El frontend debe recibir la URL pública de la API de forma dinámica mediante una inyección de variables (ej. `VITE_API_URL` vía `docker build args`) en tiempo de construcción, para mantener el control de acceso.
 
 ---
 

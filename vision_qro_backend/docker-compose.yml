@@ -89,7 +89,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=postgres
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      - CORS_ORIGINS=${CORS_ORIGINS}
       # Ruta del modelo YOLO (persistida en volumen yolo_models)
       - YOLO_MODEL_PATH=models/yolo12n.pt
       # Token del bot de Telegram (para construir URLs de fotos)
@@ -112,7 +112,10 @@ services:
 
   # 5. FRONTEND / DASHBOARD
   frontend:
-    build: ../vision-qro-frontend
+    build:
+      context: ../vision-qro-frontend
+      args:
+        VITE_API_URL: ${PUBLIC_API_URL}
     container_name: vision_qro_frontend
     restart: always
     ports:
