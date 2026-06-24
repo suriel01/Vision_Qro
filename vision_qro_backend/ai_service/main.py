@@ -1,10 +1,14 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
+from fastapi.security import APIKeyHeader
+from fastapi import Depends
+from pydantic import BaseModel
 from ultralytics import YOLO
 import httpx
 import io
+import csv
 from PIL import Image
 import os
 from databases import Database
@@ -27,9 +31,9 @@ origins = [o.strip() for o in _cors_env.split(",") if o.strip()] or [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -41,6 +45,27 @@ DB_NAME     = os.getenv("POSTGRES_DB", "vision_qro")
 
 DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
 database = Database(DATABASE_URL)
+
+# --- 3.5 SEGURIDAD ---
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "visionqro2026")
+API_KEY = os.getenv("API_KEY", "vsqro_prod_token_9x2b")
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+def verify_api_key(api_key: str = Depends(api_key_header)):
+    if api_key != API_KEY:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    return api_key
+
+class LoginRequest(BaseModel):
+    password: str
+
+@app.post("/api/v1/auth")
+async def authenticate(data: LoginRequest):
+    if data.password == ADMIN_PASSWORD:
+        return {"token": API_KEY, "role": "admin"}
+    raise HTTPException(status_code=401, detail="Contraseña incorrecta")
+
 
 # --- 4. MODELO YOLO ---
 _model_path = os.getenv("YOLO_MODEL_PATH", "models/yolo12n.pt")
@@ -243,10 +268,34 @@ async def predict(file: UploadFile = File(...)):
 
 
 @app.delete("/api/v1/reportes/{reporte_id}")
-async def eliminar_reporte(reporte_id: int):
+async def eliminar_reporte(reporte_id: int, token: str = Depends(verify_api_key)):
     try:
         query = "DELETE FROM reportes WHERE id = :id"
         await database.execute(query=query, values={"id": reporte_id})
         return {"status": "success", "message": f"Reporte {reporte_id} eliminado."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/reportes/exportar")
+async def exportar_reportes(token: str = Depends(verify_api_key)):
+    query = """
+        SELECT id, latitud, longitud, clase_corregida, subclase, confianza, descripcion,
+               telegram_username, estado, created_at
+        FROM reportes
+        ORDER BY created_at DESC
+    """
+    filas = await database.fetch_all(query=query)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    if filas:
+        writer.writerow(filas[0].keys())
+        for f in filas:
+            writer.writerow(f.values())
+            
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]), 
+        media_type="text/csv", 
+        headers={"Content-Disposition": "attachment; filename=reportes_vision_qro.csv"}
+    )

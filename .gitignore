@@ -50,3 +50,4 @@ lerna-debug.log*
 pgdata/
 postgres_data/
 db_data/
+backups/

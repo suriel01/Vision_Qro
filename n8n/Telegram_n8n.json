@@ -1,5 +1,5 @@
 {
-  "name": "Enviar foto",
+  "name": "Telegram_n8n",
   "nodes": [
     {
       "parameters": {
@@ -12,15 +12,15 @@
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.2,
       "position": [
-        20048,
-        21056
+        1392,
+        3184
       ],
-      "id": "3e142b65-909d-4e9c-b6bc-a64423dc03a4",
+      "id": "a182002b-a6ad-458c-a994-f462ebb6212e",
       "name": "Telegram Trigger",
       "webhookId": "b81bc5a9-d26d-49c5-a216-b1aaf7cb81c3",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -85,29 +85,6 @@
                 },
                 "conditions": [
                   {
-                    "id": "2c7fd01d-c347-4860-9e74-6a6a1bc68723",
-                    "leftValue": "={{ $json.message.text }}",
-                    "rightValue": "/cancelar",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 3
-                },
-                "conditions": [
-                  {
                     "id": "1f65ea0f-5075-443b-9d82-67dae959f613",
                     "leftValue": "={{ $json.message.text }}",
                     "rightValue": "/ayuda",
@@ -153,29 +130,29 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        20272,
-        20416
+        1616,
+        2656
       ],
-      "id": "34e34f97-bab9-4cf7-9966-797a86051a85",
+      "id": "ca0776a2-c4c5-441f-bdb2-ea0afcf9ad16",
       "name": "Switch"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "DELETE FROM reportes WHERE chat_id = {{ $json.message.chat.id }} AND estado = 'esperando_ubicacion';\nINSERT INTO reportes (chat_id, foto_id, estado, telegram_username)\nVALUES (\n  {{ $json.message.chat.id }},\n  '{{ $json.message.photo[$json.message.photo.length - 1].file_id }}',\n  'esperando_ubicacion',\n  '{{ $json.message.from.username || $json.message.from.first_name }}'\n);",
+        "query": "DELETE FROM reportes WHERE chat_id = {{ $json.message.chat.id }} AND estado = 'esperando_ubicacion';\nINSERT INTO reportes (chat_id, foto_id, estado, telegram_username)\nVALUES (\n  {{ $json.message.chat.id }},\n  '{{ $json.message.photo[$json.message.photo.length - 1].file_id }}',\n  'esperando_ubicacion',\n  '{{ ($json.message.from.username || $json.message.from.first_name || \"\").replace(/'/g, \"''\") }}'\n);",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        20496,
-        20096
+        1840,
+        2416
       ],
-      "id": "aebcdcaf-5746-474a-bbf6-6b7252a5f1a0",
+      "id": "edd7d773-9e31-4da9-8607-ded72f7cc77d",
       "name": "Foto",
       "credentials": {
         "postgres": {
-          "id": "326GbKP8LulCptUD",
+          "id": "BobsKejVTZVW3OaL",
           "name": "Postgres account"
         }
       }
@@ -189,14 +166,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        20496,
-        20288
+        1840,
+        2608
       ],
-      "id": "56ccc362-fc3e-415e-a5c4-88bbe68a3550",
+      "id": "44e68905-009e-4ab7-934f-4f0b013d2f3b",
       "name": "Ubicacion",
       "credentials": {
         "postgres": {
-          "id": "326GbKP8LulCptUD",
+          "id": "BobsKejVTZVW3OaL",
           "name": "Postgres account"
         }
       }
@@ -210,15 +187,15 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        20720,
-        20288
+        2064,
+        2608
       ],
-      "id": "4c0a58af-c420-4ec1-86d3-0c685b26fcd0",
+      "id": "09db9e4c-e84c-42bd-9ada-6b75e1e7ce20",
       "name": "Descargar foto",
       "webhookId": "ed906f03-8104-4e56-8be7-d6b11c02c3b8",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -226,31 +203,7 @@
     {
       "parameters": {
         "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "Reporte cancelado, vuelve a enviar otra foto.",
-        "additionalFields": {
-          "appendAttribution": false
-        }
-      },
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        20720,
-        20480
-      ],
-      "id": "5e4c5a7c-2fbe-4c53-8dd8-5e9b6f94c063",
-      "name": "mensaje de cancelacion de foto",
-      "webhookId": "2821469a-ae77-419a-a9e6-c42a8c5933da",
-      "credentials": {
-        "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
-          "name": "Telegram account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "¡Foto recibida! 📸 Ahora mándame tu ubicación para completar el reporte de Vision Qro.",
+        "text": "¡Foto recibida! 📸 Ahora mándame tu ubicación.",
         "replyMarkup": "inlineKeyboard",
         "inlineKeyboard": {
           "rows": [
@@ -275,15 +228,15 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        20720,
-        20096
+        2064,
+        2416
       ],
-      "id": "b23d0b72-1c26-4221-9414-eb24d9e6b74f",
+      "id": "e23813b6-8422-49e3-95f4-1f5e07864d95",
       "name": "foto recibida",
       "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -308,10 +261,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        20944,
-        20288
+        2288,
+        2608
       ],
-      "id": "487edef5-9caf-438a-b223-5ef3e8a2d677",
+      "id": "456cc178-2bcb-4aa4-a134-dca5c8aff712",
       "name": "HTTP Request"
     },
     {
@@ -331,21 +284,9 @@
                     }
                   },
                   {
-                    "text": "={{ $node[\"HTTP Request\"].json.categoria === 'pendiente' ? '❌ Descartar reporte' : '❌ Hay un error' }}",
+                    "text": "={{ $node[\"HTTP Request\"].json.categoria === 'pendiente' ? '🚫 Cancelar reporte' : '❌ Hay un error' }}",
                     "additionalFields": {
                       "callback_data": "={{ $node[\"HTTP Request\"].json.categoria === 'pendiente' ? 'cancelar_reporte' : 'conf_err' }}"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "row": {
-                "buttons": [
-                  {
-                    "text": "🚫 Cancelar reporte",
-                    "additionalFields": {
-                      "callback_data": "cancelar_reporte"
                     }
                   }
                 ]
@@ -360,15 +301,15 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        21392,
-        20288
+        2736,
+        2608
       ],
-      "id": "aab23991-512b-4330-b79e-3ffbd9719980",
+      "id": "b9037799-c3dd-4086-8c8f-5b9ababd730b",
       "name": "Reporte Completado",
       "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -376,7 +317,7 @@
     {
       "parameters": {
         "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "=🤖 Soporte de Vision Qro  \n\nPara generar un reporte, sigue estos pasos:   \n\n\n1. Envía una foto clara del problema (bache, basura, etc.) usando el icono del clip 📎 en la sección de \"Galeria\".  \n\n2. Envía tu ubicación actual usando nuevamente el icono del clip 📎 en la sección de \"ubicación\", enviar ubicación selecionada (no envies ubicación en tiempo real, envía la que aparece con circulo azul).      \n\n3. Espera el análisis de nuestra IA basada en YOLO12 de Ultralylics.  \n\n\nEscribe /cancelar despues de enviar una foto por si te equivocas o deseas cambiar de foto.",
+        "text": "=🤖 Soporte de Vision Qro  \n\nPara generar un reporte, sigue estos pasos:   \n\n\n1. Envía una foto clara del problema (bache, basura, etc.) usando el icono del clip 📎 en la sección de \"Galeria\".  \n\n2. Envía tu ubicación actual usando nuevamente el icono del clip 📎 en la sección de \"ubicación\", enviar ubicación selecionada. ⚠️ No envies ubicación en tiempo real ⚠️, envía la que aparece con color azul 🟦).      \n\n3. Espera el análisis de IA. Si la IA Acierta el analisis darle al botón \"✅ Es correcto\" y listo! ya se genero tu reporte, si no acierta darle al botón \"❌ Hay un error\"\n\n4. En caso de haber un error puedes ingresar los datos manualmente siguendo las instrucciones del chatbot.\n\nSi te equivocas puedes darle al botón \"🚫 Cancelar reporte\"",
         "additionalFields": {
           "appendAttribution": false
         }
@@ -384,37 +325,16 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        20496,
-        20672
+        1840,
+        2800
       ],
-      "id": "3b3da068-aaca-45ee-91af-9dc8be55e200",
+      "id": "b6e4f51b-3998-4ef1-96db-b6151bd9c153",
       "name": "/ayuda",
       "webhookId": "2821469a-ae77-419a-a9e6-c42a8c5933da",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "DELETE FROM reportes \nWHERE chat_id = {{ $json.message.chat.id }} \n  AND estado != 'completado';",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        20496,
-        20480
-      ],
-      "id": "4de89dad-14be-4321-98b3-9ca300a622b1",
-      "name": "/cancelar",
-      "credentials": {
-        "postgres": {
-          "id": "326GbKP8LulCptUD",
-          "name": "Postgres account"
         }
       }
     },
@@ -684,6 +604,29 @@
                 },
                 "conditions": [
                   {
+                    "id": "1da85689-96fd-4d88-bb77-fd8a3ca8e9ef",
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "mat_bolsa",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
                     "id": "174a428d-ccb2-417b-acb9-86c4e5215354",
                     "leftValue": "={{ $json.callback_query.data }}",
                     "rightValue": "cancelar_reporte_inline",
@@ -704,10 +647,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        20272,
-        21376
+        1616,
+        3504
       ],
-      "id": "5d0e4056-620a-49b5-8566-afbe2152a905",
+      "id": "69a724f3-2478-443a-b6a7-3d6dba2f987b",
       "name": "Switch1"
     },
     {
@@ -719,14 +662,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        20496,
-        21056
+        1840,
+        3184
       ],
-      "id": "415bdfb0-9b59-4098-b42f-f813e7cab066",
+      "id": "48d7f751-d077-49aa-aae8-9176c7ed23ef",
       "name": "Validado",
       "credentials": {
         "postgres": {
-          "id": "326GbKP8LulCptUD",
+          "id": "BobsKejVTZVW3OaL",
           "name": "Postgres account"
         }
       }
@@ -742,15 +685,15 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        20720,
-        21056
+        2064,
+        3184
       ],
-      "id": "c000fe58-9036-4718-b6bb-fa89af710464",
+      "id": "bd794901-31ac-4977-a8c0-243606ca0e4b",
       "name": "confirmacion",
       "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -764,14 +707,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        20496,
-        21248
+        1840,
+        3376
       ],
-      "id": "721d8480-83d4-4090-a1b6-739ab6090062",
+      "id": "6c855655-5e9a-4467-8aee-538aa915422f",
       "name": "Correcion",
       "credentials": {
         "postgres": {
-          "id": "326GbKP8LulCptUD",
+          "id": "BobsKejVTZVW3OaL",
           "name": "Postgres account"
         }
       }
@@ -800,18 +743,6 @@
                   }
                 ]
               }
-            },
-            {
-              "row": {
-                "buttons": [
-                  {
-                    "text": "🚫 Cancelar reporte",
-                    "additionalFields": {
-                      "callback_data": "cancelar_reporte_inline"
-                    }
-                  }
-                ]
-              }
             }
           ]
         },
@@ -822,15 +753,15 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        20944,
-        20864
+        2288,
+        2992
       ],
-      "id": "c84d4d51-4525-4cfe-81e5-c5bf3a5c5399",
+      "id": "11492260-03c1-4dcd-afb9-cd2acd83082b",
       "name": "solicitar clasificacion",
       "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -855,6 +786,12 @@
                     "text": "♻️ Inorgánico",
                     "additionalFields": {
                       "callback_data": "mat_inorg"
+                    }
+                  },
+                  {
+                    "text": "🗑️ Bolsa de basura",
+                    "additionalFields": {
+                      "callback_data": "mat_bolsa"
                     }
                   },
                   {
@@ -887,15 +824,15 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        20496,
-        21824
+        1840,
+        3952
       ],
-      "id": "d5605c1b-6812-45c0-84cf-fcfd8637e680",
+      "id": "fb5ea3fc-1366-4028-92c4-ab9809f04774",
       "name": "Categoria basura",
       "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -952,15 +889,15 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        20496,
-        21632
+        1840,
+        3760
       ],
-      "id": "84088ffe-8a17-43fc-861b-58cc3f12aa17",
+      "id": "3c69b02b-3262-44bc-9923-a3e05283fc46",
       "name": "Tamaño bache",
       "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -968,20 +905,20 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes \nSET subclase = '{{ $json.callback_query.data.split(\"_\")[1] }}', \n    estado = 'corregido_por_humano',\n    confianza = NULL,\n    telegram_username = '{{ $json.callback_query.from.username || $json.callback_query.from.first_name }}'\nWHERE chat_id = {{ $json.callback_query.message.chat.id }} \nAND (estado = 'pendiente_correccion' OR estado = 'en_subclasificacion');",
+        "query": "UPDATE reportes \nSET subclase = '{{ $json.callback_query.data.split(\"_\")[1] }}', \n    estado = 'corregido_por_humano',\n    confianza = NULL,\n    telegram_username = '{{ ($json.callback_query.from.username || $json.callback_query.from.first_name || \"\").replace(/'/g, \"''\") }}'\nWHERE chat_id = {{ $json.callback_query.message.chat.id }} \nAND (estado = 'pendiente_correccion' OR estado = 'en_subclasificacion');",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        20496,
-        22016
+        1840,
+        4144
       ],
-      "id": "b970e29c-8d75-437e-8b8b-2228d332443f",
+      "id": "6c0554a8-e598-427f-b972-c5b479c6af95",
       "name": "Correcion1",
       "credentials": {
         "postgres": {
-          "id": "326GbKP8LulCptUD",
+          "id": "BobsKejVTZVW3OaL",
           "name": "Postgres account"
         }
       }
@@ -989,7 +926,7 @@
     {
       "parameters": {
         "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
-        "text": "¡Gracias por validar! Esto ayuda a entrenar mi cerebro de IA. 🧠",
+        "text": "¡Gracias por validar! ",
         "additionalFields": {
           "appendAttribution": false
         }
@@ -997,15 +934,15 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        20720,
-        22016
+        2064,
+        4144
       ],
-      "id": "688dd67b-f4e0-4716-a0ea-92dfdfd84aa2",
+      "id": "ee1f3654-676b-4583-bd3a-7216891c2917",
       "name": "confirmacion1",
       "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -1013,20 +950,20 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes\nSET clase_corregida = '{{ $node[\"HTTP Request\"].json.clase }}',\n    confianza        = {{ $node[\"HTTP Request\"].json.confianza }},\n    subclase         = NULLIF('{{ $node[\"HTTP Request\"].json.categoria }}', 'pendiente'),\n    telegram_username = '{{ $('Telegram Trigger').item.json.message.from.username || $('Telegram Trigger').item.json.message.from.first_name }}',\n    foto_url         = CASE\n        WHEN '{{ $node[\"Descargar foto\"].json.file_path }}' NOT IN ('undefined','null','')\n        THEN '{{ $node[\"Descargar foto\"].json.file_path }}'\n        ELSE foto_id\n    END\nWHERE chat_id = {{ $('Telegram Trigger').item.json.message.chat.id }}\n  AND estado = 'completado';",
+        "query": "UPDATE reportes\nSET clase_corregida = '{{ ($node[\"HTTP Request\"].json.clase || \"\").replace(/'/g, \"''\") }}',\n    confianza        = {{ $node[\"HTTP Request\"].json.confianza }},\n    subclase         = NULLIF('{{ $node[\"HTTP Request\"].json.categoria }}', 'pendiente'),\n    telegram_username = '{{ ($(\"Telegram Trigger\").item.json.message.from.username || $(\"Telegram Trigger\").item.json.message.from.first_name || \"\").replace(/'/g, \"''\") }}',\n    foto_url         = CASE\n        WHEN '{{ $node[\"Descargar foto\"].json.file_path }}' NOT IN ('undefined','null','')\n        THEN '{{ $node[\"Descargar foto\"].json.file_path }}'\n        ELSE foto_id\n    END\nWHERE chat_id = {{ $(\"Telegram Trigger\").item.json.message.chat.id }}\n  AND estado = 'completado';",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        21168,
-        20288
+        2512,
+        2608
       ],
-      "id": "e842b901-eab9-4741-847a-f68e8b38feff",
+      "id": "a5b72c36-710f-4cdd-9071-f55a9f55e2f3",
       "name": "Guardar resultado",
       "credentials": {
         "postgres": {
-          "id": "326GbKP8LulCptUD",
+          "id": "BobsKejVTZVW3OaL",
           "name": "Postgres account"
         }
       }
@@ -1040,14 +977,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        20496,
-        21440
+        1840,
+        3568
       ],
-      "id": "4356c658-ea6e-4972-a8bf-fa4b6e46738f",
+      "id": "b22f1c98-b320-479c-8893-88d6bc887dcc",
       "name": "Cancelar inline",
       "credentials": {
         "postgres": {
-          "id": "326GbKP8LulCptUD",
+          "id": "BobsKejVTZVW3OaL",
           "name": "Postgres account"
         }
       }
@@ -1063,15 +1000,15 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        20720,
-        21440
+        2064,
+        3568
       ],
-      "id": "9984942b-9db6-4d39-ba0d-dfe4597c9a44",
+      "id": "9307f36a-f388-4eea-8378-a4f08fbd3db5",
       "name": "Mensaje cancelar inline",
       "webhookId": "0afa222b-637f-4028-ac1e-8b8d78abda55",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -1079,7 +1016,7 @@
     {
       "parameters": {
         "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
-        "text": "¡Entendido! Ayúdame a mejorar mi puntería. 🎯\nPor favor, escribe el **nombre del objeto** que aparece en la foto:",
+        "text": "¡Entendido!\nPor favor, escribe el **nombre del objeto** que aparece en la foto:",
         "replyMarkup": "inlineKeyboard",
         "inlineKeyboard": {
           "rows": [
@@ -1097,20 +1034,22 @@
             }
           ]
         },
-        "additionalFields": {}
+        "additionalFields": {
+          "appendAttribution": false
+        }
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        20720,
-        21248
+        2064,
+        3376
       ],
-      "id": "09ef5e60-bc83-40d6-ae13-d05ee98b0a01",
+      "id": "63220283-fc66-428f-b374-6677b39f72c6",
       "name": "Solicitar nombre objeto",
       "webhookId": "dc3353d6-b948-471a-93b7-173b5e3cb091",
       "credentials": {
         "telegramApi": {
-          "id": "XaFnB0RjU5Z7dSO9",
+          "id": "Fndp7Q8yiihBRJvP",
           "name": "Telegram account"
         }
       }
@@ -1124,14 +1063,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        20496,
-        20864
+        1840,
+        2992
       ],
-      "id": "56d32a37-cc4f-4507-8e79-ce4464e30a19",
+      "id": "a6eb30d7-0ceb-429f-b191-3de58cd3f28a",
       "name": "Check estado nombre",
       "credentials": {
         "postgres": {
-          "id": "326GbKP8LulCptUD",
+          "id": "BobsKejVTZVW3OaL",
           "name": "Postgres account"
         }
       }
@@ -1139,20 +1078,20 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes SET clase_corregida = '{{ $(\"Telegram Trigger\").item.json.message.text }}', estado = 'pendiente_correccion', telegram_username = '{{ $(\"Telegram Trigger\").item.json.message.from.username || $(\"Telegram Trigger\").item.json.message.from.first_name }}' WHERE chat_id = {{ $(\"Telegram Trigger\").item.json.message.chat.id }} AND estado = 'esperando_nombre';",
+        "query": "UPDATE reportes SET clase_corregida = '{{ ($(\"Telegram Trigger\").item.json.message.text || \"\").replace(/'/g, \"''\") }}', estado = 'pendiente_correccion', telegram_username = '{{ ($(\"Telegram Trigger\").item.json.message.from.username || $(\"Telegram Trigger\").item.json.message.from.first_name || \"\").replace(/'/g, \"''\") }}' WHERE chat_id = {{ $(\"Telegram Trigger\").item.json.message.chat.id }} AND estado = 'esperando_nombre';",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        20720,
-        20864
+        2064,
+        2992
       ],
-      "id": "354d9982-2557-45d4-9920-8fd99ef21d85",
+      "id": "2fa6ca88-ffb5-47eb-94a1-d222602b2fc8",
       "name": "Update nombre objeto",
       "credentials": {
         "postgres": {
-          "id": "326GbKP8LulCptUD",
+          "id": "BobsKejVTZVW3OaL",
           "name": "Postgres account"
         }
       }
@@ -1188,13 +1127,6 @@
         [
           {
             "node": "Ubicacion",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "/cancelar",
             "type": "main",
             "index": 0
           }
@@ -1266,17 +1198,6 @@
         ]
       ]
     },
-    "/cancelar": {
-      "main": [
-        [
-          {
-            "node": "mensaje de cancelacion de foto",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Switch1": {
       "main": [
         [
@@ -1310,6 +1231,13 @@
         [
           {
             "node": "Categoria basura",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Correcion1",
             "type": "main",
             "index": 0
           }
@@ -1446,13 +1374,15 @@
   "active": true,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "versionId": "d1e3b3a6-7be9-4f5b-8994-2c9e7485e548",
+  "versionId": "262b5e19-13e1-492e-829c-7975f9db5f2a",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "2a2f8a06cc2f65d91de9fa1ee89b54f8a5e4388642af9ac9fadada25ae8c8741"
+    "instanceId": "ba6994c45d744d19291de93405f410a20067bd35bdca587d1e1949f731c5907e"
   },
-  "id": "oPyUlGi7WOAKaQA3",
+  "nodeGroups": [],
+  "id": "E5TJDRpN0yJDD5c2",
   "tags": []
 }

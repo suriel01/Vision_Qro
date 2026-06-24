@@ -1,7 +1,7 @@
 services:
   # 1. BASE DE DATOS ESPACIAL
   postgres:
-    image: postgis/postgis:15-3.4
+    image: kartoza/postgis:15-3.4
     container_name: vision_qro_db
     restart: always
     environment:
@@ -14,6 +14,11 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       - qro_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # 2. ORQUESTADOR
   n8n:
@@ -33,6 +38,10 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=https
       - NODE_ENV=production
+      # Pruning de ejecuciones: Conservar solo 7 días de historial interno para ahorrar disco
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168
+      - EXECUTIONS_DATA_PRUNE_TIMEOUT=3600
     ports:
       - "5678:5678"
     volumes:
@@ -41,6 +50,11 @@ services:
       - postgres
     networks:
       - qro_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # 3. TÚNEL SEGURO
   cloudflared:
@@ -52,12 +66,24 @@ services:
       - n8n
     networks:
       - qro_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # 4. CEREBRO AI
   ai_brain:
     build: ./ai_service
     container_name: vision_qro_ai
     restart: always
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -78,6 +104,26 @@ services:
       - postgres
     networks:
       - qro_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 5. FRONTEND / DASHBOARD
+  frontend:
+    build: ../vision-qro-frontend
+    container_name: vision_qro_frontend
+    restart: always
+    ports:
+      - "5173:80"
+    networks:
+      - qro_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:

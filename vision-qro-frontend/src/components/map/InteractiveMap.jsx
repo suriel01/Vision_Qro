@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Map, { Marker, Popup, Source, Layer, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, Trash2, RefreshCw, X, MapPin, Clock, Zap, Image, Layers, Activity, CheckSquare, Square, Moon, Sun, Mountain, BarChart3, ChevronLeft, ChevronRight, Navigation, LogOut, User, Maximize2 } from 'lucide-react';
+import { AlertCircle, Trash2, RefreshCw, X, MapPin, Clock, Zap, Image, Layers, Activity, CheckSquare, Square, Moon, Sun, Mountain, BarChart3, ChevronLeft, ChevronRight, Navigation, LogOut, User, Maximize2, Download } from 'lucide-react';
 
 const MAPBOX_TOKEN  = import.meta.env.VITE_MAPBOX_TOKEN;
-const API_BASE_URL  = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL  = import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.includes("localhost") ? import.meta.env.VITE_API_URL : `http://${window.location.hostname}:8000`;
 
 // ── Función Pseudo-Aleatoria Determinista ──────────────────────────────────
 const pseudoRandom = (seed) => {
@@ -24,13 +24,15 @@ const MAP_THEMES = {
 const CONFIG = {
     'bache':      { bg: '#ef4444', glow: '#ef444466', label: 'Bache',         icon: AlertCircle },
     'p':          { bg: '#ef4444', glow: '#ef444466', label: 'Bache Pequeño', icon: AlertCircle },
-    'm':          { bg: '#f97316', glow: '#f9731666', label: 'Bache Mediano', icon: AlertCircle },
-    'g':          { bg: '#dc2626', glow: '#dc262666', label: 'Bache Grande',  icon: AlertCircle },
+    'm':          { bg: '#ef4444', glow: '#ef444466', label: 'Bache Mediano', icon: AlertCircle },
+    'g':          { bg: '#ef4444', glow: '#ef444466', label: 'Bache Grande',  icon: AlertCircle },
     'organico':   { bg: '#22c55e', glow: '#22c55e66', label: 'Orgánico',      icon: Trash2 },
     'org':        { bg: '#22c55e', glow: '#22c55e66', label: 'Orgánico',      icon: Trash2 },
     'inorganico': { bg: '#3b82f6', glow: '#3b82f666', label: 'Inorgánico',    icon: Trash2 },
     'inorg':      { bg: '#3b82f6', glow: '#3b82f666', label: 'Inorgánico',    icon: Trash2 },
     'pendiente':  { bg: '#f59e0b', glow: '#f59e0b66', label: 'Pendiente',     icon: AlertCircle },
+    'otro':       { bg: '#f59e0b', glow: '#f59e0b66', label: 'Otro',          icon: AlertCircle },
+    'bolsa':      { bg: '#8b5cf6', glow: '#8b5cf666', label: 'Bolsa de basura', icon: Trash2 },
 };
 
 const getConfig = (tipo) => CONFIG[tipo?.toLowerCase()] ?? CONFIG['pendiente'];
@@ -43,8 +45,9 @@ const formatFecha = (iso) => iso
 const FILTROS = [
     { id: 'inorg',   label: 'Inorgánicos',   icon: Trash2,      color: '#3b82f6', match: ['inorganico', 'inorg'] },
     { id: 'org',     label: 'Orgánicos',     icon: Trash2,      color: '#22c55e', match: ['organico', 'org'] },
-    { id: 'bache_g', label: 'Bache (Grande)',icon: AlertCircle, color: '#dc2626', match: ['g', 'bache'] },
-    { id: 'bache_m', label: 'Bache (Mediano)',icon: AlertCircle, color: '#f97316', match: ['m'] },
+    { id: 'bolsa',   label: 'Bolsas de basura', icon: Trash2,   color: '#8b5cf6', match: ['bolsa'] },
+    { id: 'bache_g', label: 'Bache (Grande)',icon: AlertCircle, color: '#ef4444', match: ['g', 'bache'] },
+    { id: 'bache_m', label: 'Bache (Mediano)',icon: AlertCircle, color: '#ef4444', match: ['m'] },
     { id: 'bache_p', label: 'Bache (Pequeño)',icon: AlertCircle, color: '#ef4444', match: ['p'] },
     { id: 'otros',   label: 'Otros/Pdte.',   icon: AlertCircle, color: '#f59e0b', match: ['pendiente', 'otro'] },
 ];
@@ -80,18 +83,24 @@ function LoginScreen({ onLogin }) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         if (tab === 'admin') {
-            // Credenciales asignadas
-            if (username.toLowerCase() === 'admin' && password === 'admin') {
-                onLogin('admin');
-            } else {
-                setError('Usuario o contraseña incorrectos');
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/auth`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                if (!res.ok) throw new Error('Contraseña incorrecta');
+                const data = await res.json();
+                onLogin('admin', data.token);
+            } catch(err) {
+                setError(err.message);
             }
         } else {
-            onLogin('guest');
+            onLogin('guest', null);
         }
     };
 
@@ -568,6 +577,7 @@ function ReportePopup({ info, onClose, userRole, onDelete, isLight, onExpandImag
 // ── Componente Principal ────────────────────────────────────────────────────
 export default function InteractiveMap() {
     const [userRole, setUserRole]   = useState(null); // 'admin' | 'guest' | null
+    const [token, setToken]         = useState(null);
     const [reportes, setReportes]   = useState([]);
     const [popupInfo, setPopupInfo] = useState(null);
     const [loading, setLoading]     = useState(true);
@@ -642,6 +652,7 @@ export default function InteractiveMap() {
     const eliminarReporte = useCallback((id) => {
         fetch(`${API_BASE_URL}/api/v1/reportes/${id}`, {
             method: 'DELETE',
+            headers: { 'X-API-Key': token }
         })
         .then(r => {
             if (!r.ok) throw new Error("No se pudo eliminar el reporte");
@@ -654,7 +665,24 @@ export default function InteractiveMap() {
         .catch(err => {
             alert(`Error al eliminar: ${err.message}`);
         });
-    }, [cargarReportes]);
+    }, [cargarReportes, token]);
+
+    const exportarDatos = async () => {
+        try {
+            const r = await fetch(`${API_BASE_URL}/api/v1/reportes/exportar`, {
+                headers: { 'X-API-Key': token }
+            });
+            if (!r.ok) throw new Error("Error al exportar");
+            const blob = await r.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'reportes_vision_qro.csv';
+            a.click();
+        } catch(err) {
+            alert(err.message);
+        }
+    };
 
     // ── Filtrado ──
     const reportesFiltrados = useMemo(() => {
@@ -740,7 +768,7 @@ export default function InteractiveMap() {
 
     // RENDER: Pantalla de Login si no hay rol asignado
     if (!userRole) {
-        return <LoginScreen onLogin={(role) => setUserRole(role)} />;
+        return <LoginScreen onLogin={(role, tkn) => { setUserRole(role); setToken(tkn); }} />;
     }
 
     return (
@@ -968,11 +996,29 @@ export default function InteractiveMap() {
                     {userRole === 'admin' ? 'Admin' : 'Invitado'}
                 </span>
 
+                {/* Exportar CSV (Admin) */}
+                {userRole === 'admin' && (
+                    <motion.button
+                        onClick={exportarDatos}
+                        whileHover={{ scale: 1.15 }}
+                        whileTap={{ scale: 0.9 }}
+                        style={{ 
+                            background: 'none', border: 'none', cursor: 'pointer', 
+                            color: '#10b981', 
+                            display: 'flex', padding: 0, marginLeft: 4
+                        }}
+                        title="Exportar a CSV"
+                    >
+                        <Download size={14} />
+                    </motion.button>
+                )}
+
                 {/* Cerrar Sesión */}
                 <motion.button
                     onClick={() => {
                         if (window.confirm("¿Seguro que deseas salir del sistema?")) {
                             setUserRole(null);
+                            setToken(null);
                             setPopupInfo(null);
                         }
                     }}

@@ -8,8 +8,8 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 -- Tabla principal de reportes ciudadanos
 CREATE TABLE IF NOT EXISTS reportes (
     id                SERIAL PRIMARY KEY,
-    latitud           DOUBLE PRECISION NOT NULL,
-    longitud          DOUBLE PRECISION NOT NULL,
+    latitud           DOUBLE PRECISION,
+    longitud          DOUBLE PRECISION,
     clase_corregida   VARCHAR(100),
     subclase          VARCHAR(100),
     confianza         DOUBLE PRECISION,
@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS reportes (
     foto_url          TEXT,
     telegram_user_id  BIGINT,
     telegram_username VARCHAR(100),
+    chat_id           BIGINT,
+    foto_id           TEXT,
+    estado            VARCHAR(50),
     created_at        TIMESTAMPTZ DEFAULT NOW()
 );
 
