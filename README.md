@@ -103,8 +103,11 @@ Dashboard entry has been protected to ensure data security.
 - **Secure Authentication:** FastAPI handles a `POST /api/v1/auth` request checking credentials against `ADMIN_PASSWORD`.
 - **API Key Header Validation:** Protected operations like deleting reports and exporting CSV require a valid `X-API-Key` token sent in the headers, securing endpoints against unauthenticated scripts.
 
-### 📊 CSV Data Export & Archiving
-Admins can export the database query history directly from the dashboard map by clicking the download icon. The backend generates and streams a CSV archive file (`reportes_vision_qro.csv`), facilitating monthly backups and local statistical analysis.
+### 📊 System Backups, Importation & Mass Deletion (ZIP)
+Admins can fully manage database memory footprints and statistical backups directly from the map dashboard:
+- **Export ZIP Backup (Green Icon):** Generates and downloads a unified ZIP package containing `reportes.csv` along with all corresponding report photographs downloaded dynamically from Telegram.
+- **Import ZIP Backup (Blue Icon):** Restores any previously exported ZIP backup. The backend extracts, saves the images to a persistent local Docker volume, and updates the database. The frontend map then displays the old reports using local image paths, bypassing Telegram's 1-hour link expiration.
+- **Mass Deletion (Red Icon):** Instantly wipes the database reports and clears any imported local photographs to free up Jetson storage memory. It requires secure API Key token verification.
 
 ---
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Map, { Marker, Popup, Source, Layer, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, Trash2, RefreshCw, X, MapPin, Clock, Zap, Image, Layers, Activity, CheckSquare, Square, Moon, Sun, Mountain, BarChart3, ChevronLeft, ChevronRight, Navigation, LogOut, User, Maximize2, Download } from 'lucide-react';
+import { AlertCircle, Trash2, Upload, RefreshCw, X, MapPin, Clock, Zap, Image, Layers, Activity, CheckSquare, Square, Moon, Sun, Mountain, BarChart3, ChevronLeft, ChevronRight, Navigation, LogOut, User, Maximize2, Download } from 'lucide-react';
 
 const MAPBOX_TOKEN  = import.meta.env.VITE_MAPBOX_TOKEN;
 const API_BASE_URL  = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
@@ -685,16 +685,50 @@ export default function InteractiveMap() {
 
     const exportarDatos = async () => {
         try {
-            const r = await fetch(`${API_BASE_URL}/api/v1/reportes/exportar`, {
+            const r = await fetch(`${API_BASE_URL}/api/v1/reportes/exportar-zip`, {
                 headers: { 'X-API-Key': token }
             });
-            if (!r.ok) throw new Error("Error al exportar");
+            if (!r.ok) throw new Error("Error al exportar ZIP");
             const blob = await r.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'reportes_vision_qro.csv';
+            a.download = 'respaldo_vision_qro.zip';
             a.click();
+        } catch(err) {
+            alert(err.message);
+        }
+    };
+
+    const importarDatos = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        try {
+            const r = await fetch(`${API_BASE_URL}/api/v1/reportes/importar-zip`, {
+                method: "POST",
+                headers: { 'X-API-Key': token },
+                body: formData
+            });
+            if (!r.ok) throw new Error("Error al importar ZIP");
+            alert("Reportes importados exitosamente.");
+            cargarReportes();
+        } catch(err) {
+            alert(err.message);
+        }
+    };
+
+    const eliminarTodosDatos = async () => {
+        if (!window.confirm("ALERTA ROJA: ¿Estás seguro de que deseas eliminar TODOS los reportes de la base de datos de forma permanente? Asegúrate de haber exportado un respaldo primero.")) return;
+        try {
+            const r = await fetch(`${API_BASE_URL}/api/v1/reportes-todos`, {
+                method: "DELETE",
+                headers: { 'X-API-Key': token }
+            });
+            if (!r.ok) throw new Error("Error al eliminar todos los reportes");
+            alert("Todos los reportes han sido eliminados.");
+            cargarReportes();
         } catch(err) {
             alert(err.message);
         }
@@ -1057,21 +1091,40 @@ export default function InteractiveMap() {
                             {userRole === 'admin' ? 'Admin' : 'Invitado'}
                         </span>
 
-                        {/* Exportar CSV (Admin) */}
+                        {/* Controles de Admin (Export/Import/Delete All) */}
                         {userRole === 'admin' && (
-                            <motion.button
-                                onClick={exportarDatos}
-                                whileHover={{ scale: 1.15 }}
-                                whileTap={{ scale: 0.9 }}
-                                style={{ 
-                                    background: 'none', border: 'none', cursor: 'pointer', 
-                                    color: '#10b981', 
-                                    display: 'flex', padding: 0, marginLeft: 4
-                                }}
-                                title="Exportar a CSV"
-                            >
-                                <Download size={14} />
-                            </motion.button>
+                            <div style={{ display: 'flex', gap: '8px', marginLeft: 8 }}>
+                                <motion.button
+                                    onClick={exportarDatos}
+                                    whileHover={{ scale: 1.15 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10b981', padding: 0 }}
+                                    title="Exportar Respaldo (ZIP)"
+                                >
+                                    <Download size={16} />
+                                </motion.button>
+                                
+                                <input type="file" id="import-zip" accept=".zip" style={{ display: 'none' }} onChange={importarDatos} />
+                                <motion.button
+                                    onClick={() => document.getElementById('import-zip').click()}
+                                    whileHover={{ scale: 1.15 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: 0 }}
+                                    title="Importar Respaldo (ZIP)"
+                                >
+                                    <Upload size={16} />
+                                </motion.button>
+                                
+                                <motion.button
+                                    onClick={eliminarTodosDatos}
+                                    whileHover={{ scale: 1.15 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0 }}
+                                    title="Eliminar Todos los Reportes"
+                                >
+                                    <Trash2 size={16} />
+                                </motion.button>
+                            </div>
                         )}
 
                         {/* Cerrar Sesión */}
