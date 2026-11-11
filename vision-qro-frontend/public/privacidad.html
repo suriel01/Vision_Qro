@@ -67,6 +67,13 @@
     no enviar fotos donde aparezcan rostros, placas de vehículos u otra información personal de terceros.
   </p>
 
+  <h2>2.2 Estadísticas públicas</h2>
+  <p>
+    La vista “Análisis” muestra estadísticas agregadas (cuántos reportes hay por periodo, categoría, día y hora, cuántos están
+    resueltos y en cuánto tiempo). No incluye nombres, usuarios de Telegram, fotos ni la ubicación de un reporte individual.
+    Las zonas con más reportes se muestran como cuadrículas de unos 275 metros y solo cuando reúnen al menos 3 reportes.
+  </p>
+
   <h2>3. Dónde se guardan y quién interviene</h2>
   <ul>
     <li><strong>Servidor propio:</strong> los reportes se guardan en una base de datos, y una copia de cada foto en el almacenamiento de un servidor controlado por el responsable.</li>
@@ -121,7 +128,7 @@
     photo and location you send (including a copy of the photo on our own server), and any text messages you write to the bot, which are handled by an automated assistant running on our own server (not sent to third parties, kept about 7 days in the system's technical history, and possibly inaccurate), the report date and classification, and your Telegram chat identifier and username (or first name).
     The public map shows the location you shared, report type, date and status, but not your Telegram username; photos are not shown publicly by default (only administrators see them). We may message you on Telegram when your report's status changes. Data is stored on a
     server operated by the data controller; encrypted daily backups are uploaded to the controller's own Google Drive using
-    only the <code>drive.file</code> scope, and kept for 14 days; backups do not include photo copies. Photos of reports already reviewed by a person may be used to train and evaluate the classification model, on the controller's own equipment, and are deleted with the report. Use of information received from Google APIs complies with the
+    only the <code>drive.file</code> scope, and kept for 14 days; backups do not include photo copies. The public Analysis view only shows aggregated statistics (no names, photos or individual locations; map areas appear only when they gather at least 3 reports). Photos of reports already reviewed by a person may be used to train and evaluate the classification model, on the controller's own equipment, and are deleted with the report. Use of information received from Google APIs complies with the
     <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
     including the Limited Use requirements. To request access or deletion, contact <strong>suriel.allo@gmail.com</strong>.
   </p>

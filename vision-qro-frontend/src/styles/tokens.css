@@ -1,0 +1,76 @@
+/* Sistema de diseño de Vision Qro.
+   Colores tomados del logo: azul marino #122856 y turquesa #28b0ca.
+   El turquesa puro no tiene contraste suficiente para texto sobre blanco: para texto se usa --accent-text. */
+:root {
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  --navy: #122856;
+  --teal: #28b0ca;
+
+  --bg: #f4f6fa;
+  --surface: #ffffff;
+  --surface-2: #eef1f6;
+  --border: #d7dde8;
+  --border-strong: #b9c3d3;
+  --text: #16213a;
+  --text-muted: #5a6680;
+  --accent: #122856;          /* acciones primarias */
+  --accent-hover: #1b3a78;
+  --accent-contrast: #ffffff;
+  --accent-text: #0e6f87;     /* turquesa oscuro: 5.3:1 sobre blanco */
+  --focus: #28b0ca;
+  --danger: #b42318;
+  --danger-bg: #fdecea;
+
+  /* Categorías (paleta apta para daltonismo, sin neón) */
+  --cat-bache: #d55e00;
+  --cat-inorganica: #0072b2;
+  --cat-organica: #009e73;
+  --cat-bolsas: #a0527c;
+  --cat-otros: #6b7280;
+
+  /* Estados de gestión */
+  --st-nuevo: #122856;
+  --st-proceso: #b7791f;
+  --st-resuelto: #2f6f5e;
+
+  --radius: 8px;
+  --radius-sm: 6px;
+  --shadow-1: 0 1px 2px rgba(18, 40, 86, .08), 0 1px 1px rgba(18, 40, 86, .04);
+  --shadow-2: 0 8px 24px rgba(18, 40, 86, .14);
+}
+
+:root[data-theme="dark"] {
+  --bg: #0c1424;
+  --surface: #111c31;
+  --surface-2: #17233b;
+  --border: #25324d;
+  --border-strong: #35466a;
+  --text: #e8edf7;
+  --text-muted: #9aa8c2;
+  --accent: #28b0ca;
+  --accent-hover: #4cc3da;
+  --accent-contrast: #0c1424;
+  --accent-text: #5cc8de;
+  --danger: #ff8a7d;
+  --danger-bg: #3a1d1b;
+  --st-nuevo: #8fb0f0;
+  --st-proceso: #f0b45a;
+  --st-resuelto: #6fcfb0;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, .5);
+}
+
+.num { font-variant-numeric: tabular-nums; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+:where(button, a, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

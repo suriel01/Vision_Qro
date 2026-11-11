@@ -2,7 +2,7 @@ import InteractiveMap from './components/map/InteractiveMap';
 
 function App() {
   return (
-    <div className="h-screen w-screen bg-qro-dark overflow-hidden">
+    <div className="h-screen w-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
       <InteractiveMap />
     </div>
   );
