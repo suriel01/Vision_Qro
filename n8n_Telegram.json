@@ -721,7 +721,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes\nSET estado = 'validado'\nWHERE chat_id = $1\nAND estado = 'completado';",
+        "query": "UPDATE reportes\nSET estado = 'validado'\nWHERE id = (SELECT id FROM reportes WHERE chat_id = $1 AND estado = 'completado' ORDER BY id DESC LIMIT 1);",
         "options": {
           "queryReplacement": "={{ [$json.callback_query.message.chat.id] }}"
         }
@@ -768,7 +768,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes\nSET estado = 'esperando_nombre'\nWHERE chat_id = $1\nAND estado = 'completado';",
+        "query": "UPDATE reportes\nSET estado = 'esperando_nombre'\nWHERE id = (SELECT id FROM reportes WHERE chat_id = $1 AND estado = 'completado' ORDER BY id DESC LIMIT 1);",
         "options": {
           "queryReplacement": "={{ [$json.callback_query.message.chat.id] }}"
         }
@@ -1027,7 +1027,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes\nSET clase_corregida = $1,\n    confianza        = $2,\n    subclase         = NULLIF($3, 'pendiente'),\n    telegram_username = $4,\n    foto_url         = CASE\n        WHEN COALESCE($5, '') NOT IN ('undefined','null','')\n        THEN $5\n        ELSE foto_id\n    END\nWHERE chat_id = $6\n  AND estado = 'completado';",
+        "query": "UPDATE reportes\nSET clase_corregida = $1,\n    confianza        = $2,\n    subclase         = NULLIF($3, 'pendiente'),\n    telegram_username = $4,\n    foto_url         = CASE\n        WHEN COALESCE($5, '') NOT IN ('undefined','null','')\n        THEN $5\n        ELSE foto_id\n    END\nWHERE id = (SELECT id FROM reportes WHERE chat_id = $6 AND estado = 'completado' ORDER BY id DESC LIMIT 1);",
         "options": {
           "queryReplacement": "={{ [$node[\"HTTP Request\"].json.clase, $node[\"HTTP Request\"].json.confianza, $node[\"HTTP Request\"].json.categoria, $('Telegram Trigger').item.json.message.from.username || $('Telegram Trigger').item.json.message.from.first_name, $node[\"Descargar foto\"].json.file_path || '', $('Telegram Trigger').item.json.message.chat.id] }}"
         }
@@ -1202,6 +1202,29 @@
           "name": "Telegram account"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reportes\nSET estado = 'pendiente_manual'\nWHERE chat_id = $1\n  AND estado = 'completado';",
+        "options": {
+          "queryReplacement": "={{ [$('Telegram Trigger').item.json.message.chat.id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        20944,
+        20384
+      ],
+      "id": "b7d2e4f1-3a59-4c8e-8d10-6f2a9c4e1b37",
+      "name": "Marcar pendiente manual",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -1301,7 +1324,7 @@
         ],
         [
           {
-            "node": "Aviso error analisis",
+            "node": "Marcar pendiente manual",
             "type": "main",
             "index": 0
           }
@@ -1319,7 +1342,7 @@
         ],
         [
           {
-            "node": "Aviso error analisis",
+            "node": "Marcar pendiente manual",
             "type": "main",
             "index": 0
           }
@@ -1496,6 +1519,17 @@
         [
           {
             "node": "solicitar clasificacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar pendiente manual": {
+      "main": [
+        [
+          {
+            "node": "Aviso error analisis",
             "type": "main",
             "index": 0
           }
