@@ -23,6 +23,7 @@ from candidatos import elegir_candidatos
 from limite_intentos import LimiteIntentos
 from gestion import debe_notificar, es_estado_valido, mensaje_cambio
 from vista_publica import reporte_para_mapa
+from metricas import consultar_metricas, limpiar_cache as limpiar_cache_metricas
 
 # --- 1. LIFESPAN ---
 @asynccontextmanager
@@ -189,6 +190,12 @@ async def obtener_reportes_mapa(x_api_key: str | None = Header(default=None)):
     resultado = [reporte_para_mapa({k: f[k] for k in f.keys()}, es_admin, FOTOS_PUBLICAS) for f in filas]
     print(f"✅ Enviando {len(resultado)} puntos al mapa ({'admin' if es_admin else 'público'}).")
     return resultado
+
+
+@app.get("/api/v1/metricas")
+async def obtener_metricas(dias: int = 30, x_api_key: str | None = Header(default=None)):
+    """Métricas agregadas y anónimas. Con la clave de administrador se añade el bloque `modelo`."""
+    return await consultar_metricas(database, dias, _es_admin(x_api_key))
 
 
 @app.get("/api/v1/foto/{reporte_id}")
@@ -377,6 +384,7 @@ async def eliminar_reporte(reporte_id: int, token: str = Depends(verify_api_key)
             "SELECT foto_path FROM predicciones WHERE reporte_id = :id", values={"id": reporte_id})
         query = "DELETE FROM reportes WHERE id = :id"
         await database.execute(query=query, values={"id": reporte_id})
+        limpiar_cache_metricas()
         _borrar_muestras_de([f["foto_path"] for f in filas])
         return {"status": "success", "message": f"Reporte {reporte_id} eliminado."}
     except Exception as e:
@@ -411,6 +419,11 @@ async def cambiar_estado(reporte_id: int, cambio: CambioEstado, token: str = Dep
     await database.execute(
         "UPDATE reportes SET estado_gestion = :e, gestion_actualizada_en = NOW() WHERE id = :id",
         values={"e": cambio.estado, "id": reporte_id})
+    # Historial de cambios: de aquí sale el tiempo de resolución de las métricas.
+    await database.execute(
+        "INSERT INTO reportes_historial (reporte_id, estado) VALUES (:id, :e)",
+        values={"e": cambio.estado, "id": reporte_id})
+    limpiar_cache_metricas()
     notificado = False
     if debe_notificar(anterior, cambio.estado) and previo["chat_id"]:
         notificado = await _avisar_telegram(previo["chat_id"], mensaje_cambio(reporte_id, cambio.estado))
@@ -444,6 +457,7 @@ async def exportar_reportes(token: str = Depends(verify_api_key)):
 async def eliminar_todos_reportes(token: str = Depends(verify_api_key)):
     try:
         await database.execute("TRUNCATE TABLE reportes RESTART IDENTITY CASCADE")
+        limpiar_cache_metricas()
         shutil.rmtree(_MUESTRAS_DIR, ignore_errors=True)
         if os.path.exists("/app/uploads/fotos"):
             shutil.rmtree("/app/uploads/fotos")

@@ -70,4 +70,20 @@ ALTER TABLE reportes DROP CONSTRAINT IF EXISTS reportes_estado_gestion_chk;
 ALTER TABLE reportes ADD CONSTRAINT reportes_estado_gestion_chk CHECK (estado_gestion IN ('nuevo', 'en_proceso', 'resuelto'));
 CREATE INDEX IF NOT EXISTS idx_reportes_estado_gestion ON reportes (estado_gestion);
 
+-- Historial de cambios de estado de gestión (para medir el tiempo de resolución)
+CREATE TABLE IF NOT EXISTS reportes_historial (
+    id          SERIAL PRIMARY KEY,
+    reporte_id  INTEGER NOT NULL REFERENCES reportes(id) ON DELETE CASCADE,
+    estado      VARCHAR(20) NOT NULL,
+    cambiado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_reportes_historial_reporte ON reportes_historial (reporte_id, cambiado_en);
+
+-- Reportes que ya tenían estado antes de existir el historial: una fila por reporte, sin duplicar al re-ejecutar
+INSERT INTO reportes_historial (reporte_id, estado, cambiado_en)
+SELECT r.id, r.estado_gestion, COALESCE(r.gestion_actualizada_en, NOW())
+FROM reportes r
+WHERE r.estado_gestion <> 'nuevo'
+  AND NOT EXISTS (SELECT 1 FROM reportes_historial h WHERE h.reporte_id = r.id);
+
 SELECT 'Migración completada correctamente.' AS resultado;

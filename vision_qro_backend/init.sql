@@ -65,3 +65,12 @@ JOIN reportes r ON r.id = p.reporte_id
 WHERE r.estado IN ('validado', 'corregido_por_humano') AND r.subclase IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_reportes_estado_gestion ON reportes (estado_gestion);
+
+-- Historial de cambios de estado de gestión (para medir el tiempo de resolución)
+CREATE TABLE IF NOT EXISTS reportes_historial (
+    id          SERIAL PRIMARY KEY,
+    reporte_id  INTEGER NOT NULL REFERENCES reportes(id) ON DELETE CASCADE,
+    estado      VARCHAR(20) NOT NULL,
+    cambiado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_reportes_historial_reporte ON reportes_historial (reporte_id, cambiado_en);
