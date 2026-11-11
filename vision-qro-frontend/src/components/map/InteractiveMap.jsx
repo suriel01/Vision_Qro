@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import Map, { Marker, Popup, Source, Layer, NavigationControl } from 'react-map-gl/mapbox';
+import Map, { Marker, Popup, Source, Layer, NavigationControl, GeolocateControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { AlertCircle, Trash2, X } from 'lucide-react';
 import { API_BASE_URL, MAPBOX_TOKEN } from '../../config';
@@ -230,10 +230,12 @@ export default function InteractiveMap() {
     };
 
     const seleccionarReporte = useCallback((r) => {
-        setViewState((prev) => ({ ...prev, longitude: r.lng_visual, latitude: r.lat_visual, zoom: 17, pitch: 45, transitionDuration: 1200 }));
+        setViewState((prev) => ({ ...prev, longitude: r.lng_visual, latitude: r.lat_visual, zoom: 17, pitch: isMobile ? 0 : 45, transitionDuration: 1200 }));
         setPopupInfo(r);
         setPanelMovil(null);
-    }, []);
+        // Un toque breve de vibración confirma la selección en el teléfono (si el dispositivo lo permite)
+        if (isMobile) navigator.vibrate?.(8);
+    }, [isMobile]);
 
     const verEnMapa = useCallback((lat, lng) => {
         setVista('mapa');
@@ -260,6 +262,7 @@ export default function InteractiveMap() {
                     <Map
                         {...viewState}
                         onMove={(e) => setViewState(e.viewState)}
+                        onClick={() => { if (isMobile) setPanelMovil(null); }}
                         style={{ width: '100%', height: '100%' }}
                         mapStyle={MAP_THEMES[mapTheme].url}
                         mapboxAccessToken={MAPBOX_TOKEN}
@@ -267,6 +270,7 @@ export default function InteractiveMap() {
                         maxZoom={20}
                         terrain={mapTheme === 'satellite' ? { source: 'mapbox-dem', exaggeration: 1.5 } : undefined}
                     >
+                        <GeolocateControl position="bottom-right" trackUserLocation showUserHeading />
                         <NavigationControl position="bottom-right" showCompass showZoom />
 
                         {mapTheme === 'satellite' && (

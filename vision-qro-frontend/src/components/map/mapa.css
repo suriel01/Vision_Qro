@@ -116,6 +116,14 @@
 }
 .marker--bache { border-radius: 7px; }
 .marker:hover { transform: scale(1.12); }
+.marker:active { transform: scale(.88); }
+/* Área de toque de 44 px aunque el icono mida 28 */
+.marker::before { content: ''; position: absolute; inset: -8px; border-radius: 50%; }
+@keyframes marker-pop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.marker { animation: marker-pop .28s cubic-bezier(.2, 1.4, .4, 1) both; }
+.marker--resuelto { animation-name: marker-pop-dim; }
+@keyframes marker-pop-dim { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .marker { animation: none; } }
 .marker--en_proceso { box-shadow: 0 0 0 3px var(--st-proceso), 0 1px 4px rgba(0, 0, 0, .4); }
 .marker--resuelto { opacity: .6; }
 .marker--resuelto::after {
@@ -170,16 +178,27 @@
   .topbar__tab { padding: 0 8px; }
   /* En móvil los paneles son hojas que salen desde abajo; la barra de botones queda fuera del mapa, así no tapa su atribución */
   .panel--left, .panel--right {
-    top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 60%;
-    border-radius: 12px 12px 0 0; border-bottom: 0;
+    top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 52%;
+    border-radius: 16px 16px 0 0; border-bottom: 0;
   }
+  /* Asa visual: indica que es una hoja que se puede cerrar tocando el mapa */
+  .panel--left::before, .panel--right::before {
+    content: ''; align-self: center; flex: none; width: 36px; height: 4px; margin: 8px 0 0;
+    border-radius: 2px; background: var(--border-strong);
+  }
+  .panel__head .iconbtn, .iconbtn { width: 44px; height: 44px; }
+  .seg__btn, .btn, .check { min-height: 44px; }
+  .popup__close, .popup__expand { width: 40px; height: 40px; }
+  /* Controles del mapa más grandes para el pulgar */
+  .mapboxgl-ctrl-group button { width: 44px !important; height: 44px !important; }
+  .mapboxgl-ctrl-bottom-right { margin-bottom: 4px; }
   .panel__reopen { display: none; }
   .mobilebar {
-    display: flex; flex: none; height: 56px; padding: 8px 12px; gap: 8px;
+    display: flex; flex: none; min-height: 60px; padding: 8px 12px max(8px, env(safe-area-inset-bottom)); gap: 8px;
     background: var(--surface); border-top: 1px solid var(--border);
   }
   .mobilebar .seg { flex: 1; }
-  .mobilebar .seg__btn { height: 40px; }
+  .mobilebar .seg__btn { height: 44px; }
   .popup { width: min(296px, calc(100vw - 32px)); }
 }
 
