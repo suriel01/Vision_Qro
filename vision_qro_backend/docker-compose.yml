@@ -45,7 +45,9 @@ services:
       - EXECUTIONS_DATA_MAX_AGE=168
       - EXECUTIONS_DATA_PRUNE_TIMEOUT=3600
     ports:
-      - "5678:5678"
+      # Puerto 5679 en el host: el 5678 lo usa otro stack (yolo_n8n) en la Jetson.
+      # El túnel de Cloudflare llega por la red de Docker (n8n:5678), no por aquí.
+      - "5679:5678"
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
