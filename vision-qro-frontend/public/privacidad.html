@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Política de privacidad · Vision Qro</title>
+  <meta name="robots" content="index,follow" />
+  <style>
+    :root { --bg:#ffffff; --fg:#1c2230; --muted:#5b6475; --line:#e3e7ee; --accent:#1f6feb; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#0f141c; --fg:#e6eaf2; --muted:#9aa4b8; --line:#232b3a; --accent:#6aa6ff; }
+    }
+    body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+    h1 { font-size:1.8rem; margin:0 0 4px; }
+    h2 { font-size:1.15rem; margin:32px 0 8px; padding-top:16px; border-top:1px solid var(--line); }
+    p, li { color:var(--fg); }
+    .muted { color:var(--muted); font-size:.92rem; }
+    a { color:var(--accent); }
+    ul { padding-left:20px; }
+    code { background:var(--line); padding:1px 5px; border-radius:4px; font-size:.9em; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Política de privacidad</h1>
+  <p class="muted">Vision Qro · Última actualización: 10 de noviembre de 2026</p>
+
+  <p>
+    Vision Qro es una plataforma ciudadana para reportar basura y baches en Querétaro mediante un bot de
+    Telegram, con un mapa público de reportes. Esta política explica qué datos se guardan, para qué se usan
+    y cómo pedir que se eliminen. Responsable del tratamiento: <strong>Suriel Alcántara López</strong>.
+    Contacto: <strong>suriel.allo@gmail.com</strong>.
+  </p>
+
+  <h2>1. Qué datos se guardan</h2>
+  <ul>
+    <li><strong>Datos del reporte:</strong> la foto que envías, la ubicación que compartes (latitud y longitud),
+        la fecha y la clasificación del objeto (automática o corregida por una persona).</li>
+    <li><strong>Datos de Telegram:</strong> el identificador de tu chat con el bot y tu nombre de usuario (o tu nombre, si no
+        tienes usuario) tal como Telegram lo entrega al bot.</li>
+  </ul>
+  <p>No pedimos contraseñas, datos bancarios ni documentos de identidad.</p>
+
+  <h2>2. Para qué se usan</h2>
+  <ul>
+    <li>Registrar tu reporte y mostrarlo en el mapa.</li>
+    <li>Clasificar automáticamente la foto con un modelo de visión por computadora (YOLO) que corre en nuestro propio servidor.</li>
+    <li>Responderte en el chat del bot (confirmaciones, avisos de error).</li>
+  </ul>
+  <p>No vendemos ni compartimos tus datos con fines publicitarios.</p>
+
+  <h2>2.1 Qué es público</h2>
+  <p>
+    El mapa público muestra la ubicación, el tipo de reporte, la fecha y la foto del reporte. <strong>No muestra tu
+    nombre de usuario de Telegram.</strong> Por eso te pedimos no enviar fotos donde aparezcan rostros, placas de
+    vehículos u otra información personal de terceros.
+  </p>
+
+  <h2>3. Dónde se guardan y quién interviene</h2>
+  <ul>
+    <li><strong>Servidor propio:</strong> los reportes se guardan en una base de datos en un servidor controlado por el responsable.</li>
+    <li><strong>Telegram:</strong> la foto original permanece en los servidores de Telegram y se consulta desde allí para mostrarla.</li>
+    <li><strong>Cloudflare:</strong> gestiona la conexión segura (túnel y DNS) entre internet y nuestro servidor.</li>
+    <li><strong>Mapbox:</strong> proporciona el mapa base que se muestra en el navegador.</li>
+    <li><strong>Google Drive:</strong> se guardan copias de seguridad cifradas de la base de datos (ver sección 4).</li>
+  </ul>
+
+  <h2>4. Copias de seguridad en Google Drive</h2>
+  <p>
+    Una herramienta del responsable (“Vision Qro Backup”) sube cada día un respaldo <strong>cifrado</strong> de la base
+    de datos a la cuenta de Google Drive del responsable, para poder recuperar el servicio ante una falla. Usa únicamente el
+    permiso de Google Drive <code>drive.file</code>, que solo da acceso a los archivos que esa misma herramienta crea.
+    No lee, modifica ni comparte ningún otro archivo de Drive. Se conservan los respaldos de los últimos 14 días.
+  </p>
+  <p>
+    El uso de la información recibida de las API de Google se ajusta a la
+    <a href="https://developers.google.com/terms/api-services-user-data-policy">Política de datos de usuario de los
+    Servicios de API de Google</a>, incluidos los requisitos de uso limitado.
+  </p>
+
+  <h2>5. Cuánto tiempo se conservan</h2>
+  <p>
+    Los reportes se conservan mientras el servicio esté en operación o hasta que se eliminen. Los respaldos se borran
+    automáticamente a los 14 días.
+  </p>
+
+  <h2>6. Tus derechos</h2>
+  <p>
+    Puedes pedir acceso, corrección o eliminación de tus reportes y de los datos asociados a tu cuenta de Telegram escribiendo a
+    <strong>suriel.allo@gmail.com</strong>, indicando tu nombre de usuario de Telegram y, si puedes, el reporte en cuestión.
+    También puedes cancelar un reporte en curso con el botón “Cancelar reporte” del bot. Los reportes eliminados
+    desaparecen del mapa; pueden permanecer hasta 14 días en los respaldos cifrados.
+  </p>
+
+  <h2>7. Seguridad</h2>
+  <p>
+    Las operaciones de administración requieren autenticación, el token del bot nunca se expone al navegador y los
+    respaldos se cifran antes de salir del servidor. Ningún sistema es infalible; si detectamos un incidente que te afecte, te lo
+    comunicaremos.
+  </p>
+
+  <h2>8. Cambios</h2>
+  <p>Si esta política cambia, actualizaremos la fecha de la parte superior.</p>
+
+  <h2>English summary</h2>
+  <p>
+    Vision Qro lets residents report litter and potholes in Querétaro through a Telegram bot, with a public map. We store the
+    photo and location you send, the report date and classification, and your Telegram chat identifier and username (or first name).
+    The public map shows location, report type, date and photo, but not your Telegram username. Data is stored on a
+    server operated by the data controller; encrypted daily backups are uploaded to the controller's own Google Drive using
+    only the <code>drive.file</code> scope, and kept for 14 days. Use of information received from Google APIs complies with the
+    <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
+    including the Limited Use requirements. To request access or deletion, contact <strong>suriel.allo@gmail.com</strong>.
+  </p>
+</main>
+</body>
+</html>
