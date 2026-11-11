@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, Form, Request, UploadFile, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
@@ -16,6 +16,7 @@ import zipfile
 import shutil
 import datetime
 import secrets
+import time
 from databases import Database
 
 # --- 1. LIFESPAN ---
@@ -258,11 +259,63 @@ async def proxy_foto(reporte_id: int):
         raise HTTPException(status_code=502, detail=f"Error al contactar Telegram: {e}")
 
 
+# --- 6.5 MUESTRAS PARA MEJORAR EL MODELO ---
+# Cada foto analizada se guarda con lo que predijo el modelo. La etiqueta correcta sale después de
+# la validación/corrección humana (ver la vista v_muestras_entrenamiento). Se borran junto con el reporte.
+_MUESTRAS_DIR = "/app/uploads/entrenamiento"
+_MODELO_NOMBRE = os.path.basename(_model_path)
+
+
+def _solo_red_interna(request: Request):
+    """/predict solo lo usa n8n por la red de Docker. Lo que llega por Cloudflare trae
+    Cf-Connecting-Ip: se rechaza para que nadie desde internet gaste GPU ni disco."""
+    if request.headers.get("cf-connecting-ip"):
+        raise HTTPException(status_code=403, detail="No disponible desde internet")
+
+
+async def _guardar_muestra(content: bytes, ext: str, reporte_id: int | None,
+                           clase: str, confianza: float, categoria: str):
+    """Guarda la foto y la predicción. Nunca debe romper la respuesta al usuario."""
+    if reporte_id is None:
+        return
+    ruta = None
+    try:
+        os.makedirs(_MUESTRAS_DIR, exist_ok=True)
+        ruta = os.path.join(_MUESTRAS_DIR, f"{int(reporte_id)}_{int(time.time())}.{ext}")
+        def _escribir():
+            with open(ruta, "wb") as fh:
+                fh.write(content)
+        await run_in_threadpool(_escribir)
+        await database.execute(
+            "INSERT INTO predicciones (reporte_id, modelo, clase, confianza, categoria, foto_path) "
+            "VALUES (:r, :m, :c, :f, :cat, :p)",
+            values={"r": int(reporte_id), "m": _MODELO_NOMBRE, "c": clase,
+                    "f": confianza, "cat": categoria, "p": ruta},
+        )
+    except Exception as e:
+        print(f"⚠️  No se pudo guardar la muestra del reporte {reporte_id}: {e}")
+        if ruta and os.path.exists(ruta):
+            os.remove(ruta)  # sin fila en la base, un archivo huérfano solo ocupa disco
+
+
+def _borrar_muestras_de(rutas):
+    for ruta in rutas:
+        try:
+            if ruta and ruta.startswith(_MUESTRAS_DIR + "/"):
+                os.remove(ruta)
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            print(f"⚠️  No se pudo borrar {ruta}: {e}")
+
+
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
+async def predict(request: Request, file: UploadFile = File(...), reporte_id: int | None = Form(default=None)):
+    _solo_red_interna(request)
     try:
         content = await file.read()
         img = Image.open(io.BytesIO(content))
+        ext = {"jpeg": "jpg", "png": "png", "webp": "webp"}.get((img.format or "jpeg").lower(), "jpg")
         # La inferencia es síncrona y pesada: en un hilo aparte para no bloquear
         # el event loop (mapa, fotos y login siguen respondiendo mientras YOLO trabaja).
         results = await run_in_threadpool(model, img)
@@ -277,6 +330,7 @@ async def predict(file: UploadFile = File(...)):
             best = max(detections, key=lambda x: x["confianza"])
             categoria = _CLASE_A_CAT.get(best["clase"].lower())
             cat_label = _CAT_LABEL.get(categoria, "🔍 Requiere clasificación manual")
+            await _guardar_muestra(content, ext, reporte_id, best["clase"], best["confianza"], categoria or "pendiente")
             return {
                 "status":     "success",
                 "clase":      best["clase"],
@@ -287,6 +341,7 @@ async def predict(file: UploadFile = File(...)):
                     f"📂 Categoría: {cat_label}"
                 ),
             }
+        await _guardar_muestra(content, ext, reporte_id, "desconocido", 0, "pendiente")
         return {
             "status": "no_detections",
             "clase": "desconocido",
@@ -301,8 +356,11 @@ async def predict(file: UploadFile = File(...)):
 @app.delete("/api/v1/reportes/{reporte_id}")
 async def eliminar_reporte(reporte_id: int, token: str = Depends(verify_api_key)):
     try:
+        filas = await database.fetch_all(
+            "SELECT foto_path FROM predicciones WHERE reporte_id = :id", values={"id": reporte_id})
         query = "DELETE FROM reportes WHERE id = :id"
         await database.execute(query=query, values={"id": reporte_id})
+        _borrar_muestras_de([f["foto_path"] for f in filas])
         return {"status": "success", "message": f"Reporte {reporte_id} eliminado."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -333,7 +391,8 @@ async def exportar_reportes(token: str = Depends(verify_api_key)):
 @app.delete("/api/v1/reportes-todos")
 async def eliminar_todos_reportes(token: str = Depends(verify_api_key)):
     try:
-        await database.execute("TRUNCATE TABLE reportes RESTART IDENTITY")
+        await database.execute("TRUNCATE TABLE reportes RESTART IDENTITY CASCADE")
+        shutil.rmtree(_MUESTRAS_DIR, ignore_errors=True)
         if os.path.exists("/app/uploads/fotos"):
             shutil.rmtree("/app/uploads/fotos")
         os.makedirs("/app/uploads/fotos", exist_ok=True)

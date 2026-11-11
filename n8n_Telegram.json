@@ -305,6 +305,10 @@
               "parameterType": "formBinaryData",
               "name": "file",
               "inputDataFieldName": "data"
+            },
+            {
+              "name": "reporte_id",
+              "value": "={{ $node[\"Ubicacion\"].json.id }}"
             }
           ]
         },
