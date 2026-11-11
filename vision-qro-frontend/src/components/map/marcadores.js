@@ -78,28 +78,29 @@ export const pseudoRandom = (seed) => {
     return x - Math.floor(x);
 };
 
-// Capa de calor: una sola gama (turquesa a azul marino), sin colores de neón
-export const heatmapLayer = {
+// Capa de calor: sobre mapa claro va de turquesa a azul marino; sobre mapa oscuro o satélite, de azul a blanco
+export const heatmapLayer = (oscuro) => ({
     id: 'reportes-heatmap',
     type: 'heatmap',
     paint: {
         'heatmap-weight': 1,
         'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 15, 3],
-        'heatmap-color': [
-            'interpolate', ['linear'], ['heatmap-density'],
-            0, 'rgba(40,176,202,0)',
-            0.2, 'rgba(40,176,202,0.35)',
-            0.5, 'rgba(32,128,160,0.6)',
-            0.8, 'rgba(24,72,128,0.8)',
-            1, 'rgba(18,40,86,0.92)',
-        ],
+        'heatmap-color': oscuro
+            ? ['interpolate', ['linear'], ['heatmap-density'],
+                0, 'rgba(47,111,228,0)', 0.2, 'rgba(47,111,228,0.45)', 0.5, 'rgba(61,170,255,0.7)',
+                0.8, 'rgba(150,220,255,0.9)', 1, 'rgba(255,255,255,0.95)']
+            : ['interpolate', ['linear'], ['heatmap-density'],
+                0, 'rgba(40,176,202,0)', 0.2, 'rgba(40,176,202,0.35)', 0.5, 'rgba(32,128,160,0.6)',
+                0.8, 'rgba(24,72,128,0.8)', 1, 'rgba(18,40,86,0.92)'],
         'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 6, 15, 45],
         'heatmap-opacity': 0.85,
     },
-};
+});
 
+// Mapas base. "Calles" y "Noche" son los de mayor contraste en calles y nombres; "Minimal" es el más sobrio.
 export const MAP_THEMES = {
-    light:     { id: 'light',     label: 'Claro',   url: 'mapbox://styles/mapbox/light-v11' },
-    dark:      { id: 'dark',      label: 'Oscuro',  url: 'mapbox://styles/mapbox/dark-v11' },
-    satellite: { id: 'satellite', label: 'Satélite', url: 'mapbox://styles/mapbox/satellite-streets-v12' },
+    calles:   { id: 'calles',   label: 'Calles',    oscuro: false, url: 'mapbox://styles/mapbox/streets-v12' },
+    noche:    { id: 'noche',    label: 'Noche',     oscuro: true,  url: 'mapbox://styles/mapbox/navigation-night-v1' },
+    claro:    { id: 'claro',    label: 'Minimal',   oscuro: false, url: 'mapbox://styles/mapbox/light-v11' },
+    satelite: { id: 'satelite', label: 'Satélite',  oscuro: true,  url: 'mapbox://styles/mapbox/satellite-streets-v12' },
 };

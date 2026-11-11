@@ -1,10 +1,10 @@
 import { useRef } from 'react';
-import { RefreshCw, Download, Upload, Trash2, LogOut } from 'lucide-react';
+import { RefreshCw, Download, Upload, Trash2, Settings } from 'lucide-react';
 
 /** Barra superior: marca, vistas (Mapa / Análisis), conteo y acciones. Las de respaldo y borrado solo existen para el administrador. */
 export default function TopBar({
     vista, onVista, total, cargando, error, onRefrescar,
-    esAdmin, onExportar, onImportar, onEliminarTodo, onSalir,
+    esAdmin, onExportar, onImportar, onEliminarTodo, onAjustes,
 }) {
     const archivo = useRef(null);
     return (
@@ -47,8 +47,8 @@ export default function TopBar({
 
                 <span className="topbar__sep" aria-hidden="true" />
                 <span className={`badge${esAdmin ? ' badge--admin' : ''}`}>{esAdmin ? 'Administrador' : 'Invitado'}</span>
-                <button type="button" className="iconbtn" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={onSalir}>
-                    <LogOut size={16} />
+                <button type="button" className="iconbtn" title="Ajustes" aria-label="Ajustes" onClick={onAjustes}>
+                    <Settings size={16} />
                 </button>
             </div>
         </header>

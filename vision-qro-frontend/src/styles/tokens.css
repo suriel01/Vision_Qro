@@ -8,18 +8,18 @@
   --navy: #122856;
   --teal: #28b0ca;
 
-  --bg: #f4f6fa;
+  --bg: #eceff4;
   --surface: #ffffff;
-  --surface-2: #eef1f6;
-  --border: #d7dde8;
-  --border-strong: #b9c3d3;
-  --text: #16213a;
-  --text-muted: #5a6680;
-  --accent: #122856;          /* acciones primarias */
-  --accent-hover: #1b3a78;
+  --surface-2: #f1f3f7;
+  --border: #dce0e8;
+  --border-strong: #bcc3d0;
+  --text: #12161d;
+  --text-muted: #566072;
+  --accent: #1e4fb8;          /* acciones primarias: azul */
+  --accent-hover: #173f95;
   --accent-contrast: #ffffff;
-  --accent-text: #0e6f87;     /* turquesa oscuro: 5.3:1 sobre blanco */
-  --focus: #28b0ca;
+  --accent-text: #1a56c4;     /* 6:1 sobre blanco */
+  --focus: #2f6fe4;
   --danger: #b42318;
   --danger-bg: #fdecea;
 
@@ -31,35 +31,36 @@
   --cat-otros: #6b7280;
 
   /* Estados de gestión */
-  --st-nuevo: #122856;
+  --st-nuevo: #1e4fb8;
   --st-proceso: #b7791f;
   --st-resuelto: #2f6f5e;
 
   --radius: 8px;
   --radius-sm: 6px;
-  --shadow-1: 0 1px 2px rgba(18, 40, 86, .08), 0 1px 1px rgba(18, 40, 86, .04);
-  --shadow-2: 0 8px 24px rgba(18, 40, 86, .14);
+  --shadow-1: 0 1px 2px rgba(16, 24, 40, .08), 0 1px 1px rgba(16, 24, 40, .04);
+  --shadow-2: 0 8px 24px rgba(16, 24, 40, .14);
 }
 
 :root[data-theme="dark"] {
-  --bg: #0c1424;
-  --surface: #111c31;
-  --surface-2: #17233b;
-  --border: #25324d;
-  --border-strong: #35466a;
-  --text: #e8edf7;
-  --text-muted: #9aa8c2;
-  --accent: #28b0ca;
-  --accent-hover: #4cc3da;
-  --accent-contrast: #0c1424;
-  --accent-text: #5cc8de;
-  --danger: #ff8a7d;
-  --danger-bg: #3a1d1b;
-  --st-nuevo: #8fb0f0;
+  --bg: #0d0f13;
+  --surface: #14171c;
+  --surface-2: #1b1f26;
+  --border: #262b34;
+  --border-strong: #363d4a;
+  --text: #e8ebf1;
+  --text-muted: #9aa3b2;
+  --accent: #2f6fe4;
+  --accent-hover: #4a86f0;
+  --accent-contrast: #ffffff;
+  --accent-text: #7db2ff;
+  --focus: #5b9bff;
+  --danger: #ff8f85;
+  --danger-bg: #34191a;
+  --st-nuevo: #8db8ff;
   --st-proceso: #f0b45a;
   --st-resuelto: #6fcfb0;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
-  --shadow-2: 0 8px 24px rgba(0, 0, 0, .5);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .5);
+  --shadow-2: 0 10px 28px rgba(0, 0, 0, .6);
 }
 
 .num { font-variant-numeric: tabular-nums; }

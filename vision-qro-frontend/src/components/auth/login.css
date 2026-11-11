@@ -1,3 +1,9 @@
+/* El logo tiene fondo blanco, así que el inicio de sesión siempre usa la paleta clara, aunque la app esté en oscuro */
+.login {
+  --surface: #ffffff; --surface-2: #f1f3f7; --border: #dce0e8; --border-strong: #bcc3d0;
+  --text: #12161d; --text-muted: #566072; --accent-text: #1a56c4; --accent-contrast: #ffffff;
+  --danger: #b42318; --danger-bg: #fdecea; --focus: #2f6fe4;
+}
 .login {
   height: 100dvh;                      /* el logo se encoge para dejar sitio a los controles; si no cabe, la pantalla se desplaza */
   background: #ffffff;                 /* el logo tiene fondo blanco: sobre blanco no se ve como una caja */

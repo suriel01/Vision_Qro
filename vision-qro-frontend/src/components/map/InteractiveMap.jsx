@@ -5,6 +5,8 @@ import { AlertCircle, Trash2, X } from 'lucide-react';
 import { API_BASE_URL, MAPBOX_TOKEN } from '../../config';
 import LoginScreen from '../auth/LoginScreen';
 import TopBar from './TopBar';
+import Ajustes from './Ajustes';
+import { useAjustes, mapaEfectivo, temaEfectivo } from '../../ajustes';
 import PanelResumen from './PanelResumen';
 import PanelFiltros from './PanelFiltros';
 import ReportePopup from './ReportePopup';
@@ -53,8 +55,10 @@ export default function InteractiveMap() {
 
     const [activeFilters, setActiveFilters] = useState(new Set(FILTROS.map((f) => f.id)));
     const [estadoFiltro, setEstadoFiltro] = useState('todos');
-    const [showHeatmap, setShowHeatmap] = useState(false);
-    const [mapTheme, setMapTheme] = useState('light');
+    const { ajustes, cambiar: cambiarAjustes, restablecer } = useAjustes();
+    const [showAjustes, setShowAjustes] = useState(false);
+    const [showHeatmap, setShowHeatmap] = useState(ajustes.vista === 'calor');
+    const mapTheme = mapaEfectivo(ajustes);
     const [viewState, setViewState] = useState({ longitude: -100.3899, latitude: 20.5888, zoom: 12, pitch: 0, bearing: 0 });
     const primeraCarga = useRef(true);
 
@@ -63,11 +67,6 @@ export default function InteractiveMap() {
         window.addEventListener('resize', alCambiar);
         return () => window.removeEventListener('resize', alCambiar);
     }, []);
-
-    // El tema de la interfaz sigue al del mapa (el satélite usa la interfaz clara)
-    useEffect(() => {
-        document.documentElement.dataset.theme = mapTheme === 'dark' ? 'dark' : 'light';
-    }, [mapTheme]);
 
     // ¿Las fotos son públicas? Lo decide el servidor (FOTOS_PUBLICAS)
     useEffect(() => {
@@ -223,19 +222,23 @@ export default function InteractiveMap() {
         features: reportesFiltrados.map((r) => ({ type: 'Feature', properties: { tipo: r.tipo }, geometry: { type: 'Point', coordinates: [r.lng, r.lat] } })),
     }), [reportesFiltrados]);
 
-    const cambiarTema = (id) => {
-        if (mapTheme === id) return;
-        setMapTheme(id);
-        setViewState((prev) => (id === 'satellite' ? { ...prev, pitch: 55, bearing: -10, zoom: 15 } : { ...prev, pitch: 0, bearing: 0 }));
+    const cambiarMapa = (id) => {
+        cambiarAjustes({ mapa: id });
+        const nuevo = id === 'auto' ? (temaEfectivo(ajustes) === 'oscuro' ? 'noche' : 'calles') : id;
+        if (nuevo === mapTheme) return;
+        setViewState((prev) => (nuevo === 'satelite' ? { ...prev, pitch: isMobile ? 0 : 55, bearing: isMobile ? 0 : -10, zoom: 15 } : { ...prev, pitch: 0, bearing: 0 }));
     };
 
     const seleccionarReporte = useCallback((r) => {
-        setViewState((prev) => ({ ...prev, longitude: r.lng_visual, latitude: r.lat_visual, zoom: 17, pitch: isMobile ? 0 : 45, transitionDuration: 1200 }));
+        // El centro se corre un poco al norte para que el punto quede abajo y la ficha (que se abre hacia arriba) no se pegue a la barra superior
+        const zoom = 17;
+        const gradosPorPixel = (360 / (512 * 2 ** zoom)) * Math.cos((r.lat_visual * Math.PI) / 180);
+        setViewState((prev) => ({ ...prev, longitude: r.lng_visual, latitude: r.lat_visual + 110 * gradosPorPixel, zoom, pitch: isMobile ? 0 : 45, transitionDuration: 1200 }));
         setPopupInfo(r);
         setPanelMovil(null);
         // Un toque breve de vibración confirma la selección en el teléfono (si el dispositivo lo permite)
-        if (isMobile) navigator.vibrate?.(8);
-    }, [isMobile]);
+        if (isMobile && ajustes.vibracion) navigator.vibrate?.(8);
+    }, [isMobile, ajustes.vibracion]);
 
     const verEnMapa = useCallback((lat, lng) => {
         setVista('mapa');
@@ -254,7 +257,7 @@ export default function InteractiveMap() {
             <TopBar
                 vista={vista} onVista={setVista} total={reportesFiltrados.length} cargando={loading} error={error}
                 onRefrescar={cargarReportes} esAdmin={esAdmin}
-                onExportar={exportarDatos} onImportar={importarDatos} onEliminarTodo={eliminarTodosDatos} onSalir={salir}
+                onExportar={exportarDatos} onImportar={importarDatos} onEliminarTodo={eliminarTodosDatos} onAjustes={() => setShowAjustes(true)}
             />
 
             <div className="app__body">
@@ -268,18 +271,18 @@ export default function InteractiveMap() {
                         mapboxAccessToken={MAPBOX_TOKEN}
                         minZoom={9}
                         maxZoom={20}
-                        terrain={mapTheme === 'satellite' ? { source: 'mapbox-dem', exaggeration: 1.5 } : undefined}
+                        terrain={mapTheme === 'satelite' ? { source: 'mapbox-dem', exaggeration: 1.5 } : undefined}
                     >
                         <GeolocateControl position="bottom-right" trackUserLocation showUserHeading />
                         <NavigationControl position="bottom-right" showCompass showZoom />
 
-                        {mapTheme === 'satellite' && (
+                        {mapTheme === 'satelite' && (
                             <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" tileSize={512} maxzoom={14} />
                         )}
 
                         {showHeatmap && (
                             <Source id="heatmap-source" type="geojson" data={heatmapGeoJSON}>
-                                <Layer {...heatmapLayer} />
+                                <Layer {...heatmapLayer(MAP_THEMES[mapTheme].oscuro)} />
                             </Source>
                         )}
 
@@ -316,7 +319,7 @@ export default function InteractiveMap() {
                     />
                     <PanelFiltros
                         mostrar={mostrarDer} onAlternar={() => (isMobile ? setPanelMovil(null) : setPanelDer((v) => !v))}
-                        mapTheme={mapTheme} onTheme={cambiarTema} showHeatmap={showHeatmap}
+                        mapTheme={mapTheme} onTheme={cambiarMapa} showHeatmap={showHeatmap}
                         onHeatmap={(v) => { setShowHeatmap(v); if (v) setPopupInfo(null); }}
                         estadoFiltro={estadoFiltro} onEstado={setEstadoFiltro}
                         activeFilters={activeFilters} onToggle={toggleFilter} onToggleAll={toggleAllFilters}
@@ -339,6 +342,13 @@ export default function InteractiveMap() {
                         <button type="button" className="seg__btn" aria-pressed={panelMovil === 'filtros'} onClick={() => setPanelMovil(panelMovil === 'filtros' ? null : 'filtros')}>Capas y filtros</button>
                     </div>
                 </nav>
+            )}
+
+            {showAjustes && (
+                <Ajustes
+                    ajustes={ajustes} onCambiar={cambiarAjustes} onMapa={cambiarMapa} onRestablecer={restablecer}
+                    onSalir={() => { setShowAjustes(false); salir(); }} onCerrar={() => setShowAjustes(false)}
+                />
             )}
 
             {expandedImage && (
