@@ -251,3 +251,10 @@
 .panel--right { max-height: calc(100% - 64px); }
 /* En el teléfono, mientras la hoja inferior está abierta, los controles del mapa se ocultan en lugar de quedar tapados */
 .view--hoja .mapboxgl-ctrl-bottom-right { display: none; }
+
+/* Los paneles (Resumen, Capas y filtros) siempre van por encima de la ficha de un reporte y de los marcadores */
+.panel, .panel__reopen { z-index: 60; }
+.mapboxgl-popup { z-index: 5; }
+.mapboxgl-marker { z-index: 1; }
+/* Si la ficha es más alta que la pantalla, se desplaza en lugar de salirse */
+.popup { max-height: calc(100dvh - 170px); overflow-y: auto; }

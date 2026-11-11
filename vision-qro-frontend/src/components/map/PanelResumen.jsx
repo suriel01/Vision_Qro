@@ -12,12 +12,12 @@ const fila = (etiqueta, n, pct, color) => (
 
 /** Panel izquierdo: totales, desglose por categoría y estado, y los últimos reportes. */
 export default function PanelResumen({ mostrar, onAlternar, stats, porEstado, ultimos, onSeleccionar }) {
-    if (!mostrar) {
-        return <button type="button" className="panel__reopen panel__reopen--left" onClick={onAlternar}>Resumen</button>;
-    }
     const totalEstados = ESTADOS.reduce((s, e) => s + (porEstado[e.id] || 0), 0);
+    // El panel y su botón se quedan montados y solo cambian de clase, para que plegar y desplegar se anime
     return (
-        <aside className="panel panel--left" aria-label="Resumen de reportes">
+        <>
+        <button type="button" className={`panel__reopen panel__reopen--left${mostrar ? ' panel__reopen--oculto' : ''}`} onClick={onAlternar} tabIndex={mostrar ? -1 : 0} aria-hidden={mostrar}>Resumen</button>
+        <aside className={`panel panel--left${mostrar ? '' : ' panel--oculto'}`} aria-label="Resumen de reportes" aria-hidden={!mostrar} inert={!mostrar}>
             <div className="panel__head">
                 <span>Resumen</span>
                 <button type="button" className="iconbtn" aria-label="Ocultar resumen" onClick={onAlternar}><X size={16} /></button>
@@ -65,5 +65,6 @@ export default function PanelResumen({ mostrar, onAlternar, stats, porEstado, ul
                 </div>
             </div>
         </aside>
+        </>
     );
 }

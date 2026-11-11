@@ -15,12 +15,11 @@ export default function PanelFiltros({
     mostrar, onAlternar, mapTheme, onTheme, capas, onCapa, showHeatmap, onHeatmap,
     estadoFiltro, onEstado, activeFilters, onToggle, onToggleAll,
 }) {
-    if (!mostrar) {
-        return <button type="button" className="panel__reopen panel__reopen--right" onClick={onAlternar}>Capas y filtros</button>;
-    }
     const todos = activeFilters.size === FILTROS.length;
     return (
-        <aside className="panel panel--right" aria-label="Capas y filtros">
+        <>
+        <button type="button" className={`panel__reopen panel__reopen--right${mostrar ? ' panel__reopen--oculto' : ''}`} onClick={onAlternar} tabIndex={mostrar ? -1 : 0} aria-hidden={mostrar}>Capas y filtros</button>
+        <aside className={`panel panel--right${mostrar ? '' : ' panel--oculto'}`} aria-label="Capas y filtros" aria-hidden={!mostrar} inert={!mostrar}>
             <div className="panel__head">
                 <span>Capas y filtros</span>
                 <button type="button" className="iconbtn" aria-label="Ocultar filtros" onClick={onAlternar}><X size={16} /></button>
@@ -71,5 +70,6 @@ export default function PanelFiltros({
                 </div>
             </div>
         </aside>
+        </>
     );
 }

@@ -76,17 +76,13 @@ export default function ReportePopup({ info, esAdmin, token, fotosPublicas, onCl
 
                 <dl className="dl">
                     <dt>Fecha</dt><dd>{formatFecha(info.created_at) ?? 'Sin fecha'}</dd>
-                    {esAdmin && (
-                        <>
-                            <dt>Reporte</dt><dd>#{info.id}</dd>
-                            {info.objeto_detectado && <><dt>Objeto</dt><dd style={{ textTransform: 'capitalize' }}>{traducirObjeto(info.objeto_detectado)}</dd></>}
-                            <dt>Clasificación</dt><dd>{manual ? 'Manual' : `Automática · ${info.confianza.toFixed(1)} % de confianza`}</dd>
-                            <dt>Ubicación</dt><dd>{info.lat?.toFixed(6)}, {info.lng?.toFixed(6)}</dd>
-                        </>
-                    )}
+                    <dt>Reporte</dt><dd>#{info.id}</dd>
+                    {info.objeto_detectado && <><dt>Objeto</dt><dd style={{ textTransform: 'capitalize' }}>{traducirObjeto(info.objeto_detectado)}</dd></>}
+                    <dt>Clasificación</dt><dd>{manual ? 'Manual' : `Automática · ${info.confianza.toFixed(1)} % de confianza`}</dd>
+                    <dt>Ubicación</dt><dd>{info.lat?.toFixed(6)}, {info.lng?.toFixed(6)}</dd>
                 </dl>
 
-                {esAdmin && info.tiene_foto && fotoError && <p className="popup__note">No se pudo cargar la foto.</p>}
+                {info.tiene_foto && fotoError && <p className="popup__note">No se pudo cargar la foto.</p>}
 
                 <div className="popup__actions">
                     <a className="btn" href={`https://www.google.com/maps/dir/?api=1&destination=${info.lat},${info.lng}`} target="_blank" rel="noopener noreferrer">

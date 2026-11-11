@@ -17,14 +17,11 @@
 .view--scroll { animation: entra-arriba .4s var(--ease-salida) both; }
 
 /* Paneles y ventanas */
-.panel--left { animation: entra-izq .4s var(--ease-salida) both; }
-.panel--right { animation: entra-der .4s var(--ease-salida) .06s both; }
 .popup { transform-origin: 50% 100%; animation: entra-pop .26s var(--ease-rebote) both; }
 .ajustes__fondo { animation: entra-opaco .2s ease both; }
 .ajustes { animation: entra-pop .28s var(--ease-rebote) both; }
 .lightbox { animation: entra-opaco .2s ease both; }
 @media (max-width: 768px) {
-  .panel--left, .panel--right { animation: entra-hoja .35s var(--ease-salida) both; }
   .ajustes { animation: entra-hoja .35s var(--ease-salida) both; }
 }
 
@@ -80,4 +77,15 @@
 
 @media print {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Plegar y desplegar paneles: se deslizan y se desvanecen; el botón para reabrirlos aparece con un pequeño rebote */
+.panel { transition: opacity .3s var(--ease-salida), transform .35s var(--ease-salida), visibility 0s; }
+.panel--oculto { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .2s ease, transform .28s ease, visibility 0s .28s; }
+.panel--left.panel--oculto { transform: translateX(-28px) scale(.97); }
+.panel--right.panel--oculto { transform: translateX(28px) scale(.97); }
+.panel__reopen { transition: opacity .25s ease .12s, transform .35s var(--ease-rebote) .12s, background-color .15s, visibility 0s; }
+.panel__reopen--oculto { opacity: 0; transform: scale(.85); visibility: hidden; pointer-events: none; transition: opacity .15s ease, transform .15s ease, visibility 0s .15s; }
+@media (max-width: 768px) {
+  .panel--left.panel--oculto, .panel--right.panel--oculto { transform: translateY(100%); }
 }

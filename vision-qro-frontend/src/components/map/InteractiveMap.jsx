@@ -245,15 +245,34 @@ export default function InteractiveMap() {
     };
 
     const seleccionarReporte = useCallback((r) => {
-        // El centro se corre un poco al norte para que el punto quede abajo y la ficha (que se abre hacia arriba) no se pegue a la barra superior
-        const zoom = 17;
-        const gradosPorPixel = (360 / (512 * 2 ** zoom)) * Math.cos((r.lat_visual * Math.PI) / 180);
-        setViewState((prev) => ({ ...prev, longitude: r.lng_visual, latitude: r.lat_visual + 110 * gradosPorPixel, zoom, pitch: isMobile ? 0 : 45, transitionDuration: 1200 }));
         setPopupInfo(r);
         setPanelMovil(null);
         // Un toque breve de vibración confirma la selección en el teléfono (si el dispositivo lo permite)
         if (isMobile && ajustes.vibracion) navigator.vibrate?.(8);
     }, [isMobile, ajustes.vibracion]);
+
+    // Al abrir una ficha, el mapa se mueve para que la FICHA (no solo el punto) quede centrada en la pantalla.
+    // Se mide su altura real una vez dibujada: el punto queda justo debajo de ella.
+    const idFicha = popupInfo?.id;
+    useEffect(() => {
+        if (idFicha === undefined) return undefined;
+        let cuadro2;
+        const cuadro1 = requestAnimationFrame(() => {
+            cuadro2 = requestAnimationFrame(() => {
+                const mapa = mapaRef.current?.getMap();
+                if (!mapa) return;
+                const ficha = document.querySelector('.mapboxgl-popup .popup');
+                const alto = ficha ? ficha.offsetHeight : 0; // offsetHeight ignora la animación de escala de la ficha
+                mapa.easeTo({
+                    center: [popupInfo.lng_visual, popupInfo.lat_visual], zoom: 17, pitch: isMobile ? 0 : 45,
+                    offset: [0, alto ? alto / 2 + 20 : 0], duration: 800,
+                });
+            });
+        });
+        return () => { cancelAnimationFrame(cuadro1); cancelAnimationFrame(cuadro2); };
+        // Solo al cambiar de reporte; actualizar su estado no debe volver a mover el mapa
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [idFicha, isMobile]);
 
     const verEnMapa = useCallback((lat, lng) => {
         setVista('mapa');
