@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Map, { Marker, Popup, Source, Layer, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, Trash2, RefreshCw, X, MapPin, Clock, Zap, Image, Layers, Activity, CheckSquare, Square, Moon, Sun, Mountain, BarChart3, ChevronLeft, ChevronRight, Navigation, LogOut, User, Maximize2 } from 'lucide-react';
+import { AlertCircle, Trash2, Upload, RefreshCw, X, MapPin, Clock, Zap, Image, Layers, Activity, CheckSquare, Square, Moon, Sun, Mountain, BarChart3, ChevronLeft, ChevronRight, Navigation, LogOut, User, Maximize2, Download } from 'lucide-react';
 
 const MAPBOX_TOKEN  = import.meta.env.VITE_MAPBOX_TOKEN;
-const API_BASE_URL  = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL  = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
 
 // ── Función Pseudo-Aleatoria Determinista ──────────────────────────────────
 const pseudoRandom = (seed) => {
@@ -24,13 +24,15 @@ const MAP_THEMES = {
 const CONFIG = {
     'bache':      { bg: '#ef4444', glow: '#ef444466', label: 'Bache',         icon: AlertCircle },
     'p':          { bg: '#ef4444', glow: '#ef444466', label: 'Bache Pequeño', icon: AlertCircle },
-    'm':          { bg: '#f97316', glow: '#f9731666', label: 'Bache Mediano', icon: AlertCircle },
-    'g':          { bg: '#dc2626', glow: '#dc262666', label: 'Bache Grande',  icon: AlertCircle },
+    'm':          { bg: '#ef4444', glow: '#ef444466', label: 'Bache Mediano', icon: AlertCircle },
+    'g':          { bg: '#ef4444', glow: '#ef444466', label: 'Bache Grande',  icon: AlertCircle },
     'organico':   { bg: '#22c55e', glow: '#22c55e66', label: 'Orgánico',      icon: Trash2 },
     'org':        { bg: '#22c55e', glow: '#22c55e66', label: 'Orgánico',      icon: Trash2 },
     'inorganico': { bg: '#3b82f6', glow: '#3b82f666', label: 'Inorgánico',    icon: Trash2 },
     'inorg':      { bg: '#3b82f6', glow: '#3b82f666', label: 'Inorgánico',    icon: Trash2 },
     'pendiente':  { bg: '#f59e0b', glow: '#f59e0b66', label: 'Pendiente',     icon: AlertCircle },
+    'otro':       { bg: '#f59e0b', glow: '#f59e0b66', label: 'Otro',          icon: AlertCircle },
+    'bolsa':      { bg: '#8b5cf6', glow: '#8b5cf666', label: 'Bolsa de basura', icon: Trash2 },
 };
 
 const getConfig = (tipo) => CONFIG[tipo?.toLowerCase()] ?? CONFIG['pendiente'];
@@ -43,8 +45,9 @@ const formatFecha = (iso) => iso
 const FILTROS = [
     { id: 'inorg',   label: 'Inorgánicos',   icon: Trash2,      color: '#3b82f6', match: ['inorganico', 'inorg'] },
     { id: 'org',     label: 'Orgánicos',     icon: Trash2,      color: '#22c55e', match: ['organico', 'org'] },
-    { id: 'bache_g', label: 'Bache (Grande)',icon: AlertCircle, color: '#dc2626', match: ['g', 'bache'] },
-    { id: 'bache_m', label: 'Bache (Mediano)',icon: AlertCircle, color: '#f97316', match: ['m'] },
+    { id: 'bolsa',   label: 'Bolsas de basura', icon: Trash2,   color: '#8b5cf6', match: ['bolsa'] },
+    { id: 'bache_g', label: 'Bache (Grande)',icon: AlertCircle, color: '#ef4444', match: ['g', 'bache'] },
+    { id: 'bache_m', label: 'Bache (Mediano)',icon: AlertCircle, color: '#ef4444', match: ['m'] },
     { id: 'bache_p', label: 'Bache (Pequeño)',icon: AlertCircle, color: '#ef4444', match: ['p'] },
     { id: 'otros',   label: 'Otros/Pdte.',   icon: AlertCircle, color: '#f59e0b', match: ['pendiente', 'otro'] },
 ];
@@ -80,18 +83,24 @@ function LoginScreen({ onLogin }) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         if (tab === 'admin') {
-            // Credenciales asignadas
-            if (username.toLowerCase() === 'admin' && password === 'admin') {
-                onLogin('admin');
-            } else {
-                setError('Usuario o contraseña incorrectos');
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/auth`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                if (!res.ok) throw new Error('Contraseña incorrecta');
+                const data = await res.json();
+                onLogin('admin', data.token);
+            } catch(err) {
+                setError(err.message);
             }
         } else {
-            onLogin('guest');
+            onLogin('guest', null);
         }
     };
 
@@ -568,19 +577,36 @@ function ReportePopup({ info, onClose, userRole, onDelete, isLight, onExpandImag
 // ── Componente Principal ────────────────────────────────────────────────────
 export default function InteractiveMap() {
     const [userRole, setUserRole]   = useState(null); // 'admin' | 'guest' | null
+    const [token, setToken]         = useState(null);
     const [reportes, setReportes]   = useState([]);
     const [popupInfo, setPopupInfo] = useState(null);
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState(null);
     const [expandedImage, setExpandedImage] = useState(null);
     
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+    
     // UI States
     const [activeFilters, setActiveFilters] = useState(new Set(FILTROS.map(f => f.id)));
     const [showHeatmap, setShowHeatmap]   = useState(false);
     const [mapTheme, setMapTheme]         = useState('dark');
-    const [showSidebar, setShowSidebar]   = useState(true); // Control de Panel Izquierdo
-    const [showRightSidebar, setShowRightSidebar] = useState(true); // Control de Panel Derecho
+    const [showSidebar, setShowSidebar]   = useState(!isMobile); // Control de Panel Izquierdo
+    const [showRightSidebar, setShowRightSidebar] = useState(!isMobile); // Control de Panel Derecho
 
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Auto-cierre de paneles en móvil
+    useEffect(() => {
+        if (isMobile && showSidebar) setShowRightSidebar(false);
+    }, [showSidebar, isMobile]);
+
+    useEffect(() => {
+        if (isMobile && showRightSidebar) setShowSidebar(false);
+    }, [showRightSidebar, isMobile]);
     const [viewState, setViewState] = useState({
         longitude: -100.3899, latitude: 20.5888, zoom: 12, pitch: 0, bearing: 0
     });
@@ -642,7 +668,7 @@ export default function InteractiveMap() {
     const eliminarReporte = useCallback((id) => {
         fetch(`${API_BASE_URL}/api/v1/reportes/${id}`, {
             method: 'DELETE',
-            headers: { 'X-API-Key': import.meta.env.VITE_ADMIN_API_KEY || '' },
+            headers: { 'X-API-Key': token }
         })
         .then(r => {
             if (!r.ok) throw new Error("No se pudo eliminar el reporte");
@@ -655,7 +681,58 @@ export default function InteractiveMap() {
         .catch(err => {
             alert(`Error al eliminar: ${err.message}`);
         });
-    }, [cargarReportes]);
+    }, [cargarReportes, token]);
+
+    const exportarDatos = async () => {
+        try {
+            const r = await fetch(`${API_BASE_URL}/api/v1/reportes/exportar-zip`, {
+                headers: { 'X-API-Key': token }
+            });
+            if (!r.ok) throw new Error("Error al exportar ZIP");
+            const blob = await r.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'respaldo_vision_qro.zip';
+            a.click();
+        } catch(err) {
+            alert(err.message);
+        }
+    };
+
+    const importarDatos = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        try {
+            const r = await fetch(`${API_BASE_URL}/api/v1/reportes/importar-zip`, {
+                method: "POST",
+                headers: { 'X-API-Key': token },
+                body: formData
+            });
+            if (!r.ok) throw new Error("Error al importar ZIP");
+            alert("Reportes importados exitosamente.");
+            cargarReportes();
+        } catch(err) {
+            alert(err.message);
+        }
+    };
+
+    const eliminarTodosDatos = async () => {
+        if (!window.confirm("ALERTA ROJA: ¿Estás seguro de que deseas eliminar TODOS los reportes de la base de datos de forma permanente? Asegúrate de haber exportado un respaldo primero.")) return;
+        try {
+            const r = await fetch(`${API_BASE_URL}/api/v1/reportes-todos`, {
+                method: "DELETE",
+                headers: { 'X-API-Key': token }
+            });
+            if (!r.ok) throw new Error("Error al eliminar todos los reportes");
+            alert("Todos los reportes han sido eliminados.");
+            cargarReportes();
+        } catch(err) {
+            alert(err.message);
+        }
+    };
 
     // ── Filtrado ──
     const reportesFiltrados = useMemo(() => {
@@ -741,7 +818,7 @@ export default function InteractiveMap() {
 
     // RENDER: Pantalla de Login si no hay rol asignado
     if (!userRole) {
-        return <LoginScreen onLogin={(role) => setUserRole(role)} />;
+        return <LoginScreen onLogin={(role, tkn) => { setUserRole(role); setToken(tkn); }} />;
     }
 
     return (
@@ -787,22 +864,24 @@ export default function InteractiveMap() {
                 }
             `}</style>
 
-            {/* TÍTULO CENTRADO */}
-            <h1 style={{
-                position: 'absolute', top: 18, left: '50%', transform: 'translateX(-50%)', zIndex: 10,
-                margin: 0, padding: 0,
-                fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
-                fontSize: '28px', fontWeight: 900,
-                letterSpacing: '-0.03em',
-                color: isLight ? '#0f172a' : '#ffffff',
-                textShadow: isLight 
-                    ? '0 1px 2px rgba(255,255,255,0.8), 0 2px 10px rgba(0,0,0,0.15)' 
-                    : '0 2px 12px rgba(0,0,0,0.95)',
-                pointerEvents: 'none',
-                textTransform: 'uppercase'
-            }}>
-                Vision Qro
-            </h1>
+            {/* TÍTULO CENTRADO (Solo PC) */}
+            {!isMobile && (
+                <h1 style={{
+                    position: 'absolute', top: 18, left: '50%', transform: 'translateX(-50%)', zIndex: 10,
+                    margin: 0, padding: 0,
+                    fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+                    fontSize: '28px', fontWeight: 900,
+                    letterSpacing: '-0.03em',
+                    color: isLight ? '#0f172a' : '#ffffff',
+                    textShadow: isLight 
+                        ? '0 1px 2px rgba(255,255,255,0.8), 0 2px 10px rgba(0,0,0,0.15)' 
+                        : '0 2px 12px rgba(0,0,0,0.95)',
+                    pointerEvents: 'none',
+                    textTransform: 'uppercase'
+                }}>
+                    Vision Qro
+                </h1>
+            )}
 
             {/* MAPBOX */}
             <Map
@@ -918,7 +997,20 @@ export default function InteractiveMap() {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                style={{
+                style={isMobile ? {
+                    position:       'absolute', top: 0, left: 0, right: 0, zIndex: 30,
+                    background:     hudBg,
+                    backdropFilter: 'blur(12px)',
+                    padding:        '12px 16px',
+                    color:          hudText,
+                    fontFamily:     'system-ui, sans-serif',
+                    display:        'flex',
+                    alignItems:     'center',
+                    justifyContent: 'space-between',
+                    borderBottom:   `1px solid ${hudBorder}`,
+                    boxShadow:      '0 4px 24px rgba(0,0,0,0.15)',
+                    transition:     'background 0.3s, color 0.3s'
+                } : {
                     position:       'absolute', top: 16, left: 16, zIndex: 10,
                     background:     hudBg,
                     backdropFilter: 'blur(12px)',
@@ -935,69 +1027,154 @@ export default function InteractiveMap() {
                     transition:     'background 0.3s, color 0.3s'
                 }}
             >
-                <span style={{ color: hudMuted, fontWeight: 600 }}>
-                    {loading ? 'Cargando…' : `${reportesFiltrados.length} reportes`}
-                </span>
-                
-                {/* Actualizar */}
-                <motion.button
-                    onClick={cargarReportes}
-                    disabled={loading}
-                    whileHover={{ scale: 1.15, rotate: 180 }}
-                    whileTap={{ scale: 0.9 }}
-                    animate={{ rotate: 0 }}
-                    transition={{ duration: 0.3 }}
-                    style={{ 
-                        background: 'none', border: 'none', cursor: 'pointer', 
-                        color: loading ? '#3b82f6' : hudText, 
-                        display: 'flex', padding: 0, marginLeft: 5
-                    }}
-                    title="Actualizar"
-                >
-                    <RefreshCw size={14} />
-                </motion.button>
+                {isMobile ? (
+                    <>
+                        {/* Mobile Header Left */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 900, fontSize: 16, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                VISION QRO
+                            </span>
+                            <span style={{ fontSize: 11, color: hudMuted, fontWeight: 600 }}>
+                                {loading ? '...' : `${reportesFiltrados.length} reps`}
+                            </span>
+                        </div>
 
-                <span style={{ opacity: 0.3 }}>|</span>
+                        {/* Mobile Header Right */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <motion.button onClick={cargarReportes} disabled={loading} whileTap={{ scale: 0.9 }} style={{ background: 'none', border: 'none', color: loading ? '#3b82f6' : hudText, display: 'flex', padding: 0 }}>
+                                <RefreshCw size={14} />
+                            </motion.button>
+                            <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: userRole === 'admin' ? '#f87171' : '#60a5fa', background: userRole === 'admin' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)', padding: '2px 6px', borderRadius: 4 }}>
+                                {userRole === 'admin' ? 'Admin' : 'Invitado'}
+                            </span>
+                            <motion.button
+                                onClick={() => { if (window.confirm("¿Seguro que deseas salir?")) { setUserRole(null); setToken(null); setPopupInfo(null); } }}
+                                style={{ background: 'none', border: 'none', color: '#f87171', display: 'flex', padding: 0 }}
+                            >
+                                <LogOut size={14} />
+                            </motion.button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <span style={{ color: hudMuted, fontWeight: 600 }}>
+                            {loading ? 'Cargando…' : `${reportesFiltrados.length} reportes`}
+                        </span>
+                        
+                        {/* Actualizar */}
+                        <motion.button
+                            onClick={cargarReportes}
+                            disabled={loading}
+                            whileHover={{ scale: 1.15, rotate: 180 }}
+                            whileTap={{ scale: 0.9 }}
+                            animate={{ rotate: 0 }}
+                            transition={{ duration: 0.3 }}
+                            style={{ 
+                                background: 'none', border: 'none', cursor: 'pointer', 
+                                color: loading ? '#3b82f6' : hudText, 
+                                display: 'flex', padding: 0, marginLeft: 5
+                            }}
+                            title="Actualizar"
+                        >
+                            <RefreshCw size={14} />
+                        </motion.button>
 
-                {/* Rol de Usuario */}
-                <span style={{
-                    fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-                    color: userRole === 'admin' ? '#f87171' : '#60a5fa',
-                    background: userRole === 'admin' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                    padding: '2px 6px', borderRadius: 4, border: `1px solid ${userRole === 'admin' ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)'}`
-                }}>
-                    {userRole === 'admin' ? 'Admin' : 'Invitado'}
-                </span>
+                        <span style={{ opacity: 0.3 }}>|</span>
 
-                {/* Cerrar Sesión */}
-                <motion.button
-                    onClick={() => {
-                        if (window.confirm("¿Seguro que deseas salir del sistema?")) {
-                            setUserRole(null);
-                            setPopupInfo(null);
-                        }
-                    }}
-                    whileHover={{ scale: 1.15 }}
-                    whileTap={{ scale: 0.9 }}
-                    style={{ 
-                        background: 'none', border: 'none', cursor: 'pointer', 
-                        color: '#ef4444', 
-                        display: 'flex', padding: 0, marginLeft: 4
-                    }}
-                    title="Cerrar Sesión"
-                >
-                    <LogOut size={14} />
-                </motion.button>
+                        {/* Rol de Usuario */}
+                        <span style={{
+                            fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
+                            color: userRole === 'admin' ? '#f87171' : '#60a5fa',
+                            background: userRole === 'admin' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                            padding: '2px 6px', borderRadius: 4, border: `1px solid ${userRole === 'admin' ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)'}`
+                        }}>
+                            {userRole === 'admin' ? 'Admin' : 'Invitado'}
+                        </span>
 
-                {error && <span style={{ color: '#f87171', fontSize: 11 }}>⚠️ {error}</span>}
+                        {/* Controles de Admin (Export/Import/Delete All) */}
+                        {userRole === 'admin' && (
+                            <div style={{ display: 'flex', gap: '8px', marginLeft: 8 }}>
+                                <motion.button
+                                    onClick={exportarDatos}
+                                    whileHover={{ scale: 1.15 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10b981', padding: 0 }}
+                                    title="Exportar Respaldo (ZIP)"
+                                >
+                                    <Download size={16} />
+                                </motion.button>
+                                
+                                <input type="file" id="import-zip" accept=".zip" style={{ display: 'none' }} onChange={importarDatos} />
+                                <motion.button
+                                    onClick={() => document.getElementById('import-zip').click()}
+                                    whileHover={{ scale: 1.15 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: 0 }}
+                                    title="Importar Respaldo (ZIP)"
+                                >
+                                    <Upload size={16} />
+                                </motion.button>
+                                
+                                <motion.button
+                                    onClick={eliminarTodosDatos}
+                                    whileHover={{ scale: 1.15 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0 }}
+                                    title="Eliminar Todos los Reportes"
+                                >
+                                    <Trash2 size={16} />
+                                </motion.button>
+                            </div>
+                        )}
+
+                        {/* Cerrar Sesión */}
+                        <motion.button
+                            onClick={() => {
+                                if (window.confirm("¿Seguro que deseas salir del sistema?")) {
+                                    setUserRole(null);
+                                    setToken(null);
+                                    setPopupInfo(null);
+                                }
+                            }}
+                            whileHover={{ scale: 1.15 }}
+                            whileTap={{ scale: 0.9 }}
+                            style={{ 
+                                background: 'none', border: 'none', cursor: 'pointer', 
+                                color: '#ef4444', 
+                                display: 'flex', padding: 0, marginLeft: 4
+                            }}
+                            title="Cerrar Sesión"
+                        >
+                            <LogOut size={14} />
+                        </motion.button>
+
+                        {error && <span style={{ color: '#f87171', fontSize: 11 }}>⚠️ {error}</span>}
+                    </>
+                )}
             </motion.div>
 
             {/* ── PANEL LATERAL: IZQUIERDO ── */}
             <motion.div
-                initial={{ opacity: 0, x: -300 }}
-                animate={{ opacity: 1, x: showSidebar ? 0 : -272 }}
+                initial={isMobile ? { opacity: 0, y: 300 } : { opacity: 0, x: -300 }}
+                animate={isMobile ? { opacity: 1, y: showSidebar ? 0 : '100%' } : { opacity: 1, x: showSidebar ? 0 : -272 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 24 }}
-                style={{
+                style={isMobile ? {
+                    position:       'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
+                    maxHeight:      '55dvh',
+                    background:     hudBg,
+                    backdropFilter: 'blur(12px)',
+                    borderRadius:   '16px 16px 0 0',
+                    padding:        '16px',
+                    color:          hudText,
+                    fontFamily:     'system-ui, sans-serif',
+                    borderTop:      `1px solid ${hudBorder}`,
+                    boxShadow:      '0 -8px 32px rgba(0,0,0,0.2)',
+                    display:        'flex',
+                    flexDirection:  'column',
+                    gap:             18,
+                    width:           '100%',
+                    transition:     'background 0.3s, color 0.3s'
+                } : {
                     position:       'absolute', top: 76, left: 16, bottom: 24, zIndex: 10,
                     background:     hudBg,
                     backdropFilter: 'blur(12px)',
@@ -1014,19 +1191,29 @@ export default function InteractiveMap() {
                     transition:     'background 0.3s, color 0.3s'
                 }}
             >
-                {/* Botón de Colapsar Panel Izquierdo */}
                 <button
                     onClick={() => setShowSidebar(!showSidebar)}
-                    style={{
-                        position: 'absolute', right: -28, top: '50%', transform: 'translateY(-50%)',
+                    style={isMobile ? {
+                        position: 'absolute', top: -36, left: 16,
+                        background: hudBg, border: `1px solid ${hudBorder}`,
+                        borderBottom: 'none', borderRadius: '12px 12px 0 0',
+                        width: 60, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: hudText, cursor: 'pointer', boxShadow: '0 -4px 12px rgba(0,0,0,0.1)',
+                        transition: 'background 0.3s, color 0.3s'
+                    } : {
+                        position: 'absolute', right: -32, top: '50%', transform: 'translateY(-50%)',
                         background: hudBg, border: `1px solid ${hudBorder}`,
                         borderLeft: 'none', borderRadius: '0 8px 8px 0',
-                        width: 28, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 32, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: hudText, cursor: 'pointer', boxShadow: '4px 0 12px rgba(0,0,0,0.1)',
                         transition: 'background 0.3s, color 0.3s'
                     }}
                 >
-                    {showSidebar ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+                    {isMobile ? 
+                        (showSidebar ? <ChevronRight size={20} style={{transform: 'rotate(90deg)'}} /> : <BarChart3 size={20} />) 
+                        : 
+                        (showSidebar ? <ChevronLeft size={20} /> : <ChevronRight size={20} />)
+                    }
                 </button>
 
                 {/* Sección 1: Estadísticas Rápidas */}
@@ -1126,11 +1313,28 @@ export default function InteractiveMap() {
 
             {/* ── PANEL LATERAL: DERECHO ── */}
             <motion.div
-                initial={{ opacity: 0, x: 300 }}
-                animate={{ opacity: 1, x: showRightSidebar ? 0 : 252 }}
+                initial={isMobile ? { opacity: 0, y: 300 } : { opacity: 0, x: 300 }}
+                animate={isMobile ? { opacity: 1, y: showRightSidebar ? 0 : '100%' } : { opacity: 1, x: showRightSidebar ? 0 : 252 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 24 }}
-                style={{
+                style={isMobile ? {
+                    position:       'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
+                    maxHeight:      '55dvh',
+                    background:     hudBg,
+                    backdropFilter: 'blur(12px)',
+                    borderRadius:   '16px 16px 0 0',
+                    padding:        '14px',
+                    color:          hudText,
+                    fontFamily:     'system-ui, sans-serif',
+                    borderTop:      `1px solid ${hudBorder}`,
+                    boxShadow:      '0 -8px 32px rgba(0,0,0,0.2)',
+                    display:        'flex',
+                    flexDirection:  'column',
+                    gap:             16,
+                    width:           '100%',
+                    transition:     'background 0.3s, color 0.3s'
+                } : {
                     position:       'absolute', top: 76, right: 16, zIndex: 10,
+                    maxHeight:      'calc(100dvh - 100px)',
                     background:     hudBg,
                     backdropFilter: 'blur(12px)',
                     borderRadius:    16,
@@ -1146,19 +1350,29 @@ export default function InteractiveMap() {
                     transition:     'background 0.3s, color 0.3s'
                 }}
             >
-                {/* Botón de Colapsar Panel Derecho */}
                 <button
                     onClick={() => setShowRightSidebar(!showRightSidebar)}
-                    style={{
-                        position: 'absolute', left: -28, top: '50%', transform: 'translateY(-50%)',
+                    style={isMobile ? {
+                        position: 'absolute', top: -36, right: 16,
+                        background: hudBg, border: `1px solid ${hudBorder}`,
+                        borderBottom: 'none', borderRadius: '12px 12px 0 0',
+                        width: 60, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: hudText, cursor: 'pointer', boxShadow: '0 -4px 12px rgba(0,0,0,0.1)',
+                        transition: 'background 0.3s, color 0.3s'
+                    } : {
+                        position: 'absolute', left: -32, top: '50%', transform: 'translateY(-50%)',
                         background: hudBg, border: `1px solid ${hudBorder}`,
                         borderRight: 'none', borderRadius: '8px 0 0 8px',
-                        width: 28, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 32, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: hudText, cursor: 'pointer', boxShadow: '-4px 0 12px rgba(0,0,0,0.1)',
                         transition: 'background 0.3s, color 0.3s'
                     }}
                 >
-                    {showRightSidebar ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                    {isMobile ? 
+                        (showRightSidebar ? <ChevronRight size={20} style={{transform: 'rotate(90deg)'}} /> : <Layers size={20} />)
+                        :
+                        (showRightSidebar ? <ChevronRight size={20} /> : <ChevronLeft size={20} />)
+                    }
                 </button>
 
                 {/* Título */}
@@ -1225,7 +1439,7 @@ export default function InteractiveMap() {
                 <div style={{ height: 1, background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }} />
 
                 {/* Filtros */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: 4 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, paddingLeft: 4 }}>
                         <span style={{ fontSize: 11, color: hudMuted, textTransform: 'uppercase', fontWeight: 600 }}>Categorías</span>
                         <button 

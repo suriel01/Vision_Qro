@@ -1,7 +1,7 @@
 services:
   # 1. BASE DE DATOS ESPACIAL
   postgres:
-    image: postgis/postgis:15-3.4
+    image: kartoza/postgis:15-3.4
     container_name: vision_qro_db
     restart: always
     environment:
@@ -14,6 +14,11 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       - qro_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # 2. ORQUESTADOR
   n8n:
@@ -33,14 +38,29 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=https
       - NODE_ENV=production
+      # Pruning de ejecuciones: Conservar solo 7 días de historial interno para ahorrar disco
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168
+      - EXECUTIONS_DATA_PRUNE_TIMEOUT=3600
     ports:
       - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
       - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:5678/healthz || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     networks:
       - qro_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # 3. TÚNEL SEGURO
   cloudflared:
@@ -49,43 +69,80 @@ services:
     restart: always
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
-      - n8n
+      n8n:
+        condition: service_healthy
     networks:
       - qro_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # 4. CEREBRO AI
   ai_brain:
     build: ./ai_service
     container_name: vision_qro_ai
     restart: always
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=postgres
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      - CORS_ORIGINS=${CORS_ORIGINS}
       # Ruta del modelo YOLO (persistida en volumen yolo_models)
       - YOLO_MODEL_PATH=models/yolo12n.pt
       # Token del bot de Telegram (para construir URLs de fotos)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      # Clave requerida para DELETE /api/v1/reportes/{id}
-      - ADMIN_API_KEY=${ADMIN_API_KEY}
     volumes:
       - n8n_data:/n8n_data
       # Volumen persistente: el modelo YOLO se descarga UNA sola vez
       - yolo_models:/app/models
+      # Volumen para almacenar fotos locales importadas desde archivos ZIP
+      - uploads_data:/app/uploads
     ports:
       - "8000:8000"
     depends_on:
       - postgres
     networks:
       - qro_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 5. FRONTEND / DASHBOARD
+  frontend:
+    build:
+      context: ../vision-qro-frontend
+      args:
+        VITE_API_URL: ${PUBLIC_API_URL}
+    container_name: vision_qro_frontend
+    restart: always
+    ports:
+      - "5173:80"
+    networks:
+      - qro_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:
   n8n_data:
   # Persiste el modelo YOLO entre rebuilds del container
   yolo_models:
+  uploads_data:
 
 networks:
   qro_network:

@@ -8,7 +8,6 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 -- Tabla principal de reportes ciudadanos
 CREATE TABLE IF NOT EXISTS reportes (
     id                SERIAL PRIMARY KEY,
-    -- Nullable: el reporte nace con la foto y recibe la ubicación después.
     latitud           DOUBLE PRECISION,
     longitud          DOUBLE PRECISION,
     clase_corregida   VARCHAR(100),
@@ -18,7 +17,6 @@ CREATE TABLE IF NOT EXISTS reportes (
     foto_url          TEXT,
     telegram_user_id  BIGINT,
     telegram_username VARCHAR(100),
-    -- Usadas por el workflow de n8n (máquina de estados por chat)
     chat_id           BIGINT,
     foto_id           TEXT,
     estado            VARCHAR(50),

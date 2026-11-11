@@ -1,8 +1,13 @@
-# Usar una imagen oficial de Python ligera
-FROM python:3.10-slim
+# Usar la imagen de PyTorch optimizada para Jetson Orin (L4T r36.4.0)
+FROM dustynv/pytorch:2.7-r36.4.0
+
+# Corregir URLs de repositorios de jetson-ai-lab (.dev -> .io)
+ENV PIP_INDEX_URL=https://pypi.org/simple
+ENV PIP_EXTRA_INDEX_URL=https://pypi.jetson-ai-lab.io/jp6/cu126
+ENV TAR_INDEX_URL=https://apt.jetson-ai-lab.io/jp6/cu126
 
 # Instalar dependencias del sistema para OpenCV/PIL
-RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
