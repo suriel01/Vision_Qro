@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from fastapi.security import APIKeyHeader
@@ -262,7 +263,9 @@ async def predict(file: UploadFile = File(...)):
     try:
         content = await file.read()
         img = Image.open(io.BytesIO(content))
-        results = model(img)
+        # La inferencia es síncrona y pesada: en un hilo aparte para no bloquear
+        # el event loop (mapa, fotos y login siguen respondiendo mientras YOLO trabaja).
+        results = await run_in_threadpool(model, img)
         detections = []
         for result in results:
             for box in result.boxes:

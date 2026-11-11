@@ -32,4 +32,9 @@ ALTER TABLE reportes ALTER COLUMN longitud DROP NOT NULL;
 -- Índice por fecha (si no existe)
 CREATE INDEX IF NOT EXISTS idx_reportes_fecha ON reportes (created_at DESC);
 
+-- Un solo reporte "esperando ubicación" por chat (evita duplicados por carreras).
+-- Si ya existieran duplicados, esta sentencia falla: límpialos antes de volver a correrla.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_reportes_chat_esperando_ubicacion
+    ON reportes (chat_id) WHERE estado = 'esperando_ubicacion';
+
 SELECT 'Migración completada correctamente.' AS resultado;

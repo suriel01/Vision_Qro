@@ -30,3 +30,8 @@ CREATE INDEX IF NOT EXISTS idx_reportes_coords
 -- Índice por fecha (DESC) para el historial
 CREATE INDEX IF NOT EXISTS idx_reportes_fecha
     ON reportes (created_at DESC);
+
+-- Un solo reporte "esperando ubicación" por chat: evita duplicados cuando
+-- llegan dos fotos casi al mismo tiempo (el workflow usa ON CONFLICT sobre este índice).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_reportes_chat_esperando_ubicacion
+    ON reportes (chat_id) WHERE estado = 'esperando_ubicacion';
