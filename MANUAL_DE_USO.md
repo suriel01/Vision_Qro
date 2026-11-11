@@ -321,7 +321,25 @@ python3 utils/build_workflow_selector.py                      # regenera los nod
 - Logo y miniatura: `vision-qro-frontend/public/` (original en `docs/branding/`). La miniatura al compartir el enlace es `og-image.png`;
   Telegram y otras apps guardan la vista previa en caché y pueden tardar en actualizarla.
 
-## 13. Recomendaciones de hardware para operación 24/7
+## 13. Análisis y métricas
+
+La pestaña **Análisis** del mapa es un tablero pensado para presentar a una institución: indicadores del periodo (7, 30, 90 o 365 días),
+reportes por día, por categoría, tamaño de bache, día de la semana y hora, estado de la gestión, antigüedad de los reportes abiertos,
+zonas con más reportes, calidad de los datos y, solo para el administrador, el desempeño del clasificador automático. Tiene
+botón de impresión/PDF y una sección "Cómo se calcula".
+
+- Los datos salen de `GET /api/v1/metricas?dias=N` (público, agregado y anónimo; con la clave de administrador añade el bloque `modelo`).
+  Se guarda en caché 60 segundos.
+- **Privacidad:** las zonas son cuadrículas de unos 275 m y solo aparecen con 3 o más reportes; nunca se entregan coordenadas de un reporte individual.
+- **Tiempo de resolución:** sale de la tabla `reportes_historial`, que registra cada cambio de estado. Los reportes que ya tenían estado antes de crearla
+  se rellenaron con la fecha de su último cambio, así que su tiempo de resolución es aproximado.
+- Zona horaria de los cortes por día y hora: America/Mexico_City.
+- Lógica y pruebas: `vision_qro_backend/ai_service/metricas.py` y `test_metricas.py`; interfaz en `vision-qro-frontend/src/components/analytics/`.
+
+**Sistema de diseño.** Los colores, tipografía y espacios están en `vision-qro-frontend/src/styles/tokens.css` (azul marino y turquesa del logo, tema claro y
+oscuro). La interfaz usa esas variables: para cambiar un color se edita ahí, no en cada componente.
+
+## 14. Recomendaciones de hardware para operación 24/7
 
 1. **Alimentación constante:** conecta la Jetson a la pared con su eliminador oficial. No la alimentes solo por USB si la GPU procesa imágenes.
 2. **Ventilación:** mantén libre el disipador y el ventilador para evitar sobrecalentamiento durante la inferencia con YOLO.
