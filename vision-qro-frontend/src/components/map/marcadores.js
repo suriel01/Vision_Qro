@@ -100,7 +100,7 @@ export const heatmapLayer = (oscuro) => ({
 // Mapas base. "Calles" y "Noche" son los de mayor contraste en calles y nombres; "Minimal" es el más sobrio.
 export const MAP_THEMES = {
     calles:   { id: 'calles',   label: 'Calles',    oscuro: false, url: 'mapbox://styles/mapbox/streets-v12' },
-    noche:    { id: 'noche',    label: 'Noche',     oscuro: true,  url: 'mapbox://styles/mapbox/navigation-night-v1' },
+    noche:    { id: 'noche',    label: 'Noche',     oscuro: true,  refuerzo: true, url: 'mapbox://styles/mapbox/dark-v11' },
     claro:    { id: 'claro',    label: 'Minimal',   oscuro: false, url: 'mapbox://styles/mapbox/light-v11' },
     satelite: { id: 'satelite', label: 'Satélite',  oscuro: true,  url: 'mapbox://styles/mapbox/satellite-streets-v12' },
 };

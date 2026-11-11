@@ -26,3 +26,24 @@ export function aplicarCapas(mapa, visibles) {
         if (actual !== deseado) mapa.setLayoutProperty(capa.id, 'visibility', deseado);
     }
 }
+
+const sinCambio = (mapa, id, prop, valor) => JSON.stringify(mapa.getPaintProperty(id, prop)) === JSON.stringify(valor);
+const pintar = (mapa, id, prop, valor) => { if (!sinCambio(mapa, id, prop, valor)) mapa.setPaintProperty(id, prop, valor); };
+
+/** Afina el mapa oscuro: calles en gris claro (sin líneas de color), nombres blancos con borde oscuro y fondo a juego con la interfaz. */
+export function afinarNoche(mapa) {
+    const estilo = mapa?.getStyle?.();
+    if (!estilo?.layers) return;
+    for (const c of estilo.layers) {
+        if (c.type === 'background') pintar(mapa, c.id, 'background-color', '#14171c');
+        else if (c.type === 'line' && /^(road|bridge|tunnel)-/.test(c.id)) {
+            if (/case|casing/.test(c.id)) pintar(mapa, c.id, 'line-color', '#0d0f13');
+            else if (/motorway|trunk|primary/.test(c.id)) pintar(mapa, c.id, 'line-color', '#a4adc0');
+            else pintar(mapa, c.id, 'line-color', '#7b8498');
+        } else if (c.type === 'symbol' && /label|shield|number/.test(c.id)) {
+            pintar(mapa, c.id, 'text-color', '#e8ebf1');
+            pintar(mapa, c.id, 'text-halo-color', '#0d0f13');
+            pintar(mapa, c.id, 'text-halo-width', 1.5);
+        }
+    }
+}

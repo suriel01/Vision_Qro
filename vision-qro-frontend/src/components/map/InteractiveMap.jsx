@@ -6,7 +6,7 @@ import { API_BASE_URL, MAPBOX_TOKEN } from '../../config';
 import LoginScreen from '../auth/LoginScreen';
 import TopBar from './TopBar';
 import Ajustes from './Ajustes';
-import { aplicarCapas, CAPAS_PREDETERMINADAS } from './capasMapa';
+import { aplicarCapas, afinarNoche, CAPAS_PREDETERMINADAS } from './capasMapa';
 import { useAjustes, mapaEfectivo, temaEfectivo } from '../../ajustes';
 import PanelResumen from './PanelResumen';
 import PanelFiltros from './PanelFiltros';
@@ -224,6 +224,13 @@ export default function InteractiveMap() {
         features: reportesFiltrados.map((r) => ({ type: 'Feature', properties: { tipo: r.tipo }, geometry: { type: 'Point', coordinates: [r.lng, r.lat] } })),
     }), [reportesFiltrados]);
 
+    // Se ejecuta cuando carga o cambia el estilo del mapa: oculta lo que la persona apagó y afina el mapa oscuro
+    const ajustarEstilo = () => {
+        const mapa = mapaRef.current?.getMap();
+        if (MAP_THEMES[mapTheme].refuerzo) afinarNoche(mapa);
+        aplicarCapas(mapa, ajustes.capas);
+    };
+
     const alternarCapa = (id) => {
         const capas = { ...ajustes.capas, [id]: ajustes.capas[id] === false };
         cambiarAjustes({ capas });
@@ -269,12 +276,12 @@ export default function InteractiveMap() {
             />
 
             <div className="app__body">
-                <section className="view" hidden={vista !== 'mapa'} aria-label="Mapa de reportes">
+                <section className={`view${mostrarDer && !isMobile ? ' view--panel-der' : ''}${isMobile && panelMovil ? ' view--hoja' : ''}`} hidden={vista !== 'mapa'} aria-label="Mapa de reportes">
                     <Map
                         ref={mapaRef}
                         {...viewState}
-                        onLoad={() => aplicarCapas(mapaRef.current?.getMap(), ajustes.capas)}
-                        onStyleData={() => aplicarCapas(mapaRef.current?.getMap(), ajustes.capas)}
+                        onLoad={ajustarEstilo}
+                        onStyleData={ajustarEstilo}
                         onMove={(e) => setViewState(e.viewState)}
                         onClick={() => { if (isMobile) setPanelMovil(null); }}
                         style={{ width: '100%', height: '100%' }}

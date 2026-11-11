@@ -245,3 +245,9 @@
   .ajustes { width: 100%; max-height: 88%; border-radius: 16px 16px 0 0; border-bottom: 0; }
   .ajustes__pie { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 }
+
+/* Con el panel de filtros abierto, los controles del mapa se apartan a su izquierda para que nada se tape */
+.view--panel-der .mapboxgl-ctrl-bottom-right { right: 292px; }
+.panel--right { max-height: calc(100% - 64px); }
+/* En el teléfono, mientras la hoja inferior está abierta, los controles del mapa se ocultan en lugar de quedar tapados */
+.view--hoja .mapboxgl-ctrl-bottom-right { display: none; }
