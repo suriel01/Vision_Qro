@@ -162,7 +162,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "DELETE FROM reportes WHERE chat_id = $1 AND estado = 'esperando_ubicacion';\nINSERT INTO reportes (chat_id, foto_id, estado, telegram_username)\nVALUES ($1, $2, 'esperando_ubicacion', $3)\nON CONFLICT (chat_id) WHERE estado = 'esperando_ubicacion'\nDO UPDATE SET foto_id = EXCLUDED.foto_id, telegram_username = EXCLUDED.telegram_username;",
+        "query": "UPDATE reportes SET estado = 'pendiente_manual' WHERE chat_id = $1 AND estado = 'esperando_objeto';\nDELETE FROM reportes WHERE chat_id = $1 AND estado = 'esperando_ubicacion';\nINSERT INTO reportes (chat_id, foto_id, estado, telegram_username)\nVALUES ($1, $2, 'esperando_ubicacion', $3)\nON CONFLICT (chat_id) WHERE estado = 'esperando_ubicacion'\nDO UPDATE SET foto_id = EXCLUDED.foto_id, telegram_username = EXCLUDED.telegram_username;",
         "options": {
           "queryReplacement": "={{ [$json.message.chat.id, $json.message.photo[$json.message.photo.length - 1].file_id, $json.message.from.username || $json.message.from.first_name] }}"
         }
@@ -704,6 +704,59 @@
                       "operation": "equals",
                       "name": "filter.operator.equals"
                     }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "obj_",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    },
+                    "id": "92d9548b-8df3-43bb-8e7a-281e90d396dd"
+                  },
+                  {
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "_x",
+                    "operator": {
+                      "type": "string",
+                      "operation": "endsWith"
+                    },
+                    "id": "09c23ec3-2b04-4adc-a7fc-2f90b29e3144"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.callback_query.data }}",
+                    "rightValue": "obj_",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    },
+                    "id": "f166240f-1d86-426f-93d0-1bc61a82c593"
                   }
                 ],
                 "combinator": "and"
@@ -1512,6 +1565,237 @@
           "name": "Telegram account"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ambiguo === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "00cd432e-603f-4250-9af3-17fc131ecbd2"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        21070,
+        20200
+      ],
+      "id": "d05c0f3a-18ac-428c-90bc-56aee22b170e",
+      "name": "¿Varios objetos?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reportes\nSET estado = 'esperando_objeto',\n    foto_url = CASE\n        WHEN COALESCE($2, '') NOT IN ('undefined','null','')\n        THEN $2\n        ELSE foto_id\n    END,\n    telegram_username = $3\nWHERE id = (SELECT id FROM reportes WHERE chat_id = $1 AND estado = 'completado' ORDER BY id DESC LIMIT 1)\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [$('Telegram Trigger').first().json.message.chat.id, $node[\"Descargar foto\"].json.file_path || '', $('Telegram Trigger').first().json.message.from.username || $('Telegram Trigger').first().json.message.from.first_name] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        21290,
+        20140
+      ],
+      "id": "2b6e3ab7-b986-4111-9440-97f245ec64a9",
+      "name": "Esperando objeto",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
+        "text": "📸 Veo varias cosas en tu foto. ¿Cuál quieres reportar?",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $('HTTP Request').first().json.candidatos[0].clase + ' (' + Math.round($('HTTP Request').first().json.candidatos[0].confianza) + '%)' }}",
+                    "additionalFields": {
+                      "callback_data": "={{ 'obj_' + $json.id + '_0' }}"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $('HTTP Request').first().json.candidatos[1].clase + ' (' + Math.round($('HTTP Request').first().json.candidatos[1].confianza) + '%)' }}",
+                    "additionalFields": {
+                      "callback_data": "={{ 'obj_' + $json.id + '_1' }}"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🔎 Otra cosa",
+                    "additionalFields": {
+                      "callback_data": "={{ 'obj_' + $json.id + '_x' }}"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🚫 Cancelar reporte",
+                    "additionalFields": {
+                      "callback_data": "cancelar_reporte_inline"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        21510,
+        20140
+      ],
+      "id": "eaa64ee6-e47b-42cf-b976-96c14f7ee14b",
+      "name": "Elegir objeto",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH p AS (\n  SELECT CASE WHEN split_part($1, '_', 2) ~ '^[0-9]+$' THEN split_part($1, '_', 2)::int END AS rid,\n         CASE WHEN split_part($1, '_', 3) ~ '^[0-9]+$' THEN split_part($1, '_', 3)::int END AS idx\n),\npick AS (\n  SELECT pr.reporte_id, pr.candidatos -> p.idx AS c\n  FROM p\n  JOIN LATERAL (SELECT reporte_id, candidatos FROM predicciones WHERE reporte_id = p.rid ORDER BY id DESC LIMIT 1) pr ON true\n  WHERE p.idx IS NOT NULL\n)\nUPDATE reportes r\nSET clase_corregida = pick.c ->> 'clase',\n    confianza = (pick.c ->> 'confianza')::float,\n    subclase = NULLIF(pick.c ->> 'categoria', 'pendiente'),\n    estado = 'completado'\nFROM pick\nWHERE r.id = pick.reporte_id AND r.chat_id = $2 AND r.estado = 'esperando_objeto' AND pick.c IS NOT NULL\nRETURNING r.id, r.clase_corregida, r.subclase, r.confianza;",
+        "options": {
+          "queryReplacement": "={{ [$('Telegram Trigger').first().json.callback_query.data, $('Telegram Trigger').first().json.callback_query.message.chat.id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        21070,
+        21500
+      ],
+      "id": "23641f41-eb32-43ef-bf9c-5a1c4a660f55",
+      "name": "Elegir objeto detectado",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reportes\nSET estado = 'esperando_nombre'\nWHERE id = (CASE WHEN split_part($1, '_', 2) ~ '^[0-9]+$' THEN split_part($1, '_', 2)::int END)\n  AND chat_id = $2 AND estado = 'esperando_objeto'\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [$('Telegram Trigger').first().json.callback_query.data, $('Telegram Trigger').first().json.callback_query.message.chat.id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        21070,
+        21700
+      ],
+      "id": "bd12efcd-bcc5-4c60-ae26-6ba70f167ef6",
+      "name": "Elegir otra cosa",
+      "credentials": {
+        "postgres": {
+          "id": "326GbKP8LulCptUD",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message?.chat.id || $('Telegram Trigger').first().json.callback_query?.message.chat.id }}",
+        "text": "=✅ *Reporte registrado* en el mapa de Vision Qro.\n\nElegiste: *{{ $json.clase_corregida }}* ({{ $json.subclase === 'org' ? 'Orgánico 🍎' : $json.subclase === 'inorg' ? 'Inorgánico ♻️' : 'Pendiente' }})\n\n¿Es correcto?",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "✅ Es correcto",
+                    "additionalFields": {
+                      "callback_data": "conf_ok"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "❌ Hay un error",
+                    "additionalFields": {
+                      "callback_data": "conf_err"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        21290,
+        21500
+      ],
+      "id": "98b5e765-c57a-4cd3-ab22-89a50c8e7b21",
+      "name": "Reporte con objeto elegido",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -1622,7 +1906,7 @@
       "main": [
         [
           {
-            "node": "Guardar resultado",
+            "node": "¿Varios objetos?",
             "type": "main",
             "index": 0
           }
@@ -1729,6 +2013,20 @@
         [
           {
             "node": "Cancelar inline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Elegir otra cosa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Elegir objeto detectado",
             "type": "main",
             "index": 0
           }
@@ -1911,6 +2209,57 @@
         [
           {
             "node": "Respuesta IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Varios objetos?": {
+      "main": [
+        [
+          {
+            "node": "Esperando objeto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guardar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperando objeto": {
+      "main": [
+        [
+          {
+            "node": "Elegir objeto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Elegir objeto detectado": {
+      "main": [
+        [
+          {
+            "node": "Reporte con objeto elegido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Elegir otra cosa": {
+      "main": [
+        [
+          {
+            "node": "Solicitar nombre objeto",
             "type": "main",
             "index": 0
           }

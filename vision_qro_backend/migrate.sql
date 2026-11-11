@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS predicciones (
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_predicciones_reporte ON predicciones (reporte_id);
+-- Candidatos que vio el modelo (para el selector de objeto del bot)
+ALTER TABLE predicciones ADD COLUMN IF NOT EXISTS candidatos JSONB;
 
 -- Solo reportes ya revisados por una persona (validado o corregido), con su etiqueta final.
 CREATE OR REPLACE VIEW v_muestras_entrenamiento AS

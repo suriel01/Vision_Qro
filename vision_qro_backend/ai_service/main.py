@@ -15,9 +15,11 @@ import os
 import zipfile
 import shutil
 import datetime
+import json
 import secrets
 import time
 from databases import Database
+from candidatos import elegir_candidatos
 
 # --- 1. LIFESPAN ---
 @asynccontextmanager
@@ -274,7 +276,7 @@ def _solo_red_interna(request: Request):
 
 
 async def _guardar_muestra(content: bytes, ext: str, reporte_id: int | None,
-                           clase: str, confianza: float, categoria: str):
+                           clase: str, confianza: float, categoria: str, candidatos: list | None = None):
     """Guarda la foto y la predicción. Nunca debe romper la respuesta al usuario."""
     if reporte_id is None:
         return
@@ -287,10 +289,11 @@ async def _guardar_muestra(content: bytes, ext: str, reporte_id: int | None,
                 fh.write(content)
         await run_in_threadpool(_escribir)
         await database.execute(
-            "INSERT INTO predicciones (reporte_id, modelo, clase, confianza, categoria, foto_path) "
-            "VALUES (:r, :m, :c, :f, :cat, :p)",
+            "INSERT INTO predicciones (reporte_id, modelo, clase, confianza, categoria, foto_path, candidatos) "
+            "VALUES (:r, :m, :c, :f, :cat, :p, CAST(:cand AS JSONB))",
             values={"r": int(reporte_id), "m": _MODELO_NOMBRE, "c": clase,
-                    "f": confianza, "cat": categoria, "p": ruta},
+                    "f": confianza, "cat": categoria, "p": ruta,
+                    "cand": json.dumps(candidatos or [])},
         )
     except Exception as e:
         print(f"⚠️  No se pudo guardar la muestra del reporte {reporte_id}: {e}")
@@ -320,22 +323,31 @@ async def predict(request: Request, file: UploadFile = File(...), reporte_id: in
         # el event loop (mapa, fotos y login siguen respondiendo mientras YOLO trabaja).
         results = await run_in_threadpool(model, img)
         detections = []
+        ancho, alto = img.size
         for result in results:
             for box in result.boxes:
+                x1, y1, x2, y2 = [float(v) for v in box.xyxy[0].tolist()]
+                area_frac = (max(x2 - x1, 0.0) * max(y2 - y1, 0.0)) / float(ancho * alto) if ancho and alto else 0.0
                 detections.append({
                     "clase":     model.names[int(box.cls[0])],
-                    "confianza": round(float(box.conf[0]) * 100, 2)
+                    "confianza": round(float(box.conf[0]) * 100, 2),
+                    "area_frac": area_frac,
                 })
+        # Qué objeto se reporta: el que mejor combina confianza y tamaño en la foto; si hay duda real
+        # (ambiguo) el bot le pregunta a la persona. Sin candidatos con categoría, se usa el de mayor confianza.
+        candidatos, ambiguo = elegir_candidatos(detections, _CLASE_A_CAT)
         if detections:
-            best = max(detections, key=lambda x: x["confianza"])
+            best = candidatos[0] if candidatos else max(detections, key=lambda x: x["confianza"])
             categoria = _CLASE_A_CAT.get(best["clase"].lower())
             cat_label = _CAT_LABEL.get(categoria, "🔍 Requiere clasificación manual")
-            await _guardar_muestra(content, ext, reporte_id, best["clase"], best["confianza"], categoria or "pendiente")
+            await _guardar_muestra(content, ext, reporte_id, best["clase"], best["confianza"], categoria or "pendiente", candidatos)
             return {
                 "status":     "success",
                 "clase":      best["clase"],
                 "confianza":  best["confianza"],
                 "categoria":  categoria or "pendiente",
+                "candidatos": [{k: c[k] for k in ("clase", "confianza", "categoria", "area_pct")} for c in candidatos],
+                "ambiguo":    ambiguo,
                 "mensaje_usuario": (
                     f"🤖 Detecté: *{best['clase']}* ({best['confianza']}%)\n"
                     f"📂 Categoría: {cat_label}"
@@ -347,6 +359,8 @@ async def predict(request: Request, file: UploadFile = File(...), reporte_id: in
             "clase": "desconocido",
             "confianza": 0,
             "categoria": "pendiente",
+            "candidatos": [],
+            "ambiguo": False,
             "mensaje_usuario": "🔍 No detecté ningún objeto reconocible. Por favor selecciona la categoría manualmente.",
         }
     except Exception as e:

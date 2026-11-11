@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS predicciones (
     confianza   DOUBLE PRECISION,
     categoria   VARCHAR(20),
     foto_path   TEXT,
+    candidatos  JSONB,
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_predicciones_reporte ON predicciones (reporte_id);
