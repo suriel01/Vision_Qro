@@ -20,6 +20,7 @@ import secrets
 import time
 from databases import Database
 from candidatos import elegir_candidatos
+from limite_intentos import LimiteIntentos
 
 # --- 1. LIFESPAN ---
 @asynccontextmanager
@@ -68,18 +69,35 @@ def _require_configured():
 
 def verify_api_key(api_key: str = Depends(api_key_header)):
     _require_configured()
-    if not api_key or not secrets.compare_digest(api_key, API_KEY):
+    # Se comparan bytes: compare_digest con texto no ASCII lanzaría un error 500.
+    if not api_key or not secrets.compare_digest(api_key.encode(), API_KEY.encode()):
         raise HTTPException(status_code=403, detail="No autorizado")
     return api_key
 
 class LoginRequest(BaseModel):
     password: str
 
+# Freno a las adivinanzas de contraseña: 5 fallos por cliente o 30 en total dentro de 5 minutos.
+_limite_login = LimiteIntentos(max_por_cliente=5, max_global=30, ventana_s=300)
+
+
+def _cliente(request: Request) -> str:
+    # Cloudflare pone la IP real en Cf-Connecting-Ip y la sobrescribe, así que no la puede falsear quien llega por internet.
+    return request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "desconocido")
+
+
 @app.post("/api/v1/auth")
-async def authenticate(data: LoginRequest):
+async def authenticate(data: LoginRequest, request: Request):
     _require_configured()
-    if secrets.compare_digest(data.password, ADMIN_PASSWORD):
+    cliente = _cliente(request)
+    espera = _limite_login.segundos_de_espera(cliente, time.time())
+    if espera:
+        raise HTTPException(status_code=429, detail=f"Demasiados intentos. Espera {max(1, espera // 60 + 1)} minuto(s).",
+                            headers={"Retry-After": str(espera)})
+    if secrets.compare_digest(data.password.encode(), ADMIN_PASSWORD.encode()):
+        _limite_login.registrar_exito(cliente)
         return {"token": API_KEY, "role": "admin"}
+    _limite_login.registrar_fallo(cliente, time.time())
     raise HTTPException(status_code=401, detail="Contraseña incorrecta")
 
 

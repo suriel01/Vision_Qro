@@ -93,6 +93,10 @@ function LoginScreen({ onLogin }) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
+                if (res.status === 429) {
+                    const info = await res.json().catch(() => ({}));
+                    throw new Error(info.detail || 'Demasiados intentos. Espera unos minutos.');
+                }
                 if (!res.ok) throw new Error('Contraseña incorrecta');
                 const data = await res.json();
                 onLogin('admin', data.token);
