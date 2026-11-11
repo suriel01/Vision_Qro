@@ -49,7 +49,8 @@
   <ul>
     <li>Registrar tu reporte y mostrarlo en el mapa.</li>
     <li>Clasificar automáticamente la foto con un modelo de visión por computadora (YOLO) que corre en nuestro propio servidor.</li>
-    <li>Responderte en el chat del bot (confirmaciones, avisos de error).</li>
+    <li>Responderte en el chat del bot (confirmaciones, avisos de error) y avisarte por Telegram cuando el estado de tu reporte pase a
+        “en proceso” o “resuelto”.</li>
     <li>Atender tus mensajes de texto con un asistente automático que solo responde sobre el uso de Vision Qro. Puede equivocarse y
         no representa a ninguna autoridad ni constituye un trámite oficial.</li>
     <li>Mejorar el modelo de clasificación: las fotos de reportes que una persona ya revisó pueden usarse para
@@ -60,9 +61,10 @@
 
   <h2>2.1 Qué es público</h2>
   <p>
-    El mapa público muestra la ubicación, el tipo de reporte, la fecha y la foto del reporte. <strong>No muestra tu
-    nombre de usuario de Telegram.</strong> Por eso te pedimos no enviar fotos donde aparezcan rostros, placas de
-    vehículos u otra información personal de terceros.
+    El mapa público muestra la ubicación que compartiste, el tipo de reporte, la fecha y su estado (nuevo, en proceso o resuelto).
+    <strong>No muestra tu nombre de usuario de Telegram.</strong> Por defecto <strong>las fotos no se muestran al público</strong>: solo las
+    ve quien administra el sistema. Si algún día se decidiera hacerlas públicas, esta política se actualizaría antes. Aun así, te pedimos
+    no enviar fotos donde aparezcan rostros, placas de vehículos u otra información personal de terceros.
   </p>
 
   <h2>3. Dónde se guardan y quién interviene</h2>
@@ -117,7 +119,7 @@
   <p>
     Vision Qro lets residents report litter and potholes in Querétaro through a Telegram bot, with a public map. We store the
     photo and location you send (including a copy of the photo on our own server), and any text messages you write to the bot, which are handled by an automated assistant running on our own server (not sent to third parties, kept about 7 days in the system's technical history, and possibly inaccurate), the report date and classification, and your Telegram chat identifier and username (or first name).
-    The public map shows location, report type, date and photo, but not your Telegram username. Data is stored on a
+    The public map shows the location you shared, report type, date and status, but not your Telegram username; photos are not shown publicly by default (only administrators see them). We may message you on Telegram when your report's status changes. Data is stored on a
     server operated by the data controller; encrypted daily backups are uploaded to the controller's own Google Drive using
     only the <code>drive.file</code> scope, and kept for 14 days; backups do not include photo copies. Photos of reports already reviewed by a person may be used to train and evaluate the classification model, on the controller's own equipment, and are deleted with the report. Use of information received from Google APIs complies with the
     <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,

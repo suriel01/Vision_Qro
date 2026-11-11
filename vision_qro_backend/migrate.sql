@@ -63,4 +63,11 @@ FROM predicciones p
 JOIN reportes r ON r.id = p.reporte_id
 WHERE r.estado IN ('validado', 'corregido_por_humano') AND r.subclase IS NOT NULL;
 
+-- Estado de gestión del reporte (lo cambia un administrador; lo ve todo el mundo en el mapa)
+ALTER TABLE reportes ADD COLUMN IF NOT EXISTS estado_gestion VARCHAR(20) NOT NULL DEFAULT 'nuevo';
+ALTER TABLE reportes ADD COLUMN IF NOT EXISTS gestion_actualizada_en TIMESTAMPTZ;
+ALTER TABLE reportes DROP CONSTRAINT IF EXISTS reportes_estado_gestion_chk;
+ALTER TABLE reportes ADD CONSTRAINT reportes_estado_gestion_chk CHECK (estado_gestion IN ('nuevo', 'en_proceso', 'resuelto'));
+CREATE INDEX IF NOT EXISTS idx_reportes_estado_gestion ON reportes (estado_gestion);
+
 SELECT 'Migración completada correctamente.' AS resultado;

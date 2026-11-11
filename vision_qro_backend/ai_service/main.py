@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, File, Form, Request, UploadFile, HTTPException
+from fastapi import FastAPI, File, Form, Header, Request, UploadFile, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
@@ -21,6 +21,8 @@ import time
 from databases import Database
 from candidatos import elegir_candidatos
 from limite_intentos import LimiteIntentos
+from gestion import debe_notificar, es_estado_valido, mensaje_cambio
+from vista_publica import reporte_para_mapa
 
 # --- 1. LIFESPAN ---
 @asynccontextmanager
@@ -151,69 +153,52 @@ _CAT_LABEL = {
 }
 
 
+# Las fotos de los reportes pueden contener datos de terceros: por defecto solo las ve el administrador.
+# Para mostrarlas a todos, FOTOS_PUBLICAS=true en el .env (y recrear ai_brain).
+FOTOS_PUBLICAS = os.getenv("FOTOS_PUBLICAS", "false").strip().lower() in ("1", "true", "si", "sí", "yes")
+
+
+def _es_admin(api_key: str | None) -> bool:
+    """True solo si la clave es válida. No lanza errores: un invitado simplemente no es administrador."""
+    return bool(API_KEY) and bool(api_key) and secrets.compare_digest(api_key.encode(), API_KEY.encode())
+
+
+@app.get("/api/v1/config")
+async def configuracion_publica():
+    return {"fotos_publicas": FOTOS_PUBLICAS}
+
+
 @app.get("/api/v1/reportes-mapa")
-async def obtener_reportes_mapa():
+async def obtener_reportes_mapa(x_api_key: str | None = Header(default=None)):
+    """Invitados: solo lo necesario para el mapa. Con la clave de administrador: también los datos técnicos."""
+    es_admin = _es_admin(x_api_key)
     try:
-        query = """
-            SELECT
-                id,
-                latitud, longitud,
-                clase_corregida, subclase,
-                created_at,
-                foto_url,
-                confianza
+        filas = await database.fetch_all(query="""
+            SELECT id, latitud, longitud, clase_corregida, subclase, created_at, foto_url, confianza, estado_gestion
             FROM reportes
             WHERE latitud IS NOT NULL AND longitud IS NOT NULL
             ORDER BY created_at ASC
-        """
-        filas = await database.fetch_all(query=query)
-        resultado = []
-        for f in filas:
-            tipo_final = f["subclase"] if f["subclase"] else f["clase_corregida"]
-            resultado.append({
-                "id":         int(f["id"]),
-                "lat":        float(f["latitud"]),
-                "lng":        float(f["longitud"]),
-                "tipo":       tipo_final or "pendiente",
-                "objeto_detectado": f["clase_corregida"] or "Desconocido",
-                "created_at": f["created_at"].isoformat() if f["created_at"] else None,
-                "confianza":  float(f["confianza"]) if f["confianza"] else None,
-                # telegram_username no se expone: es un dato personal y este endpoint es público.
-                # No enviamos foto_url al frontend; se usa el proxy /api/v1/foto/{id}
-                "tiene_foto": bool(f["foto_url"]),
-            })
+        """)
     except Exception as e:
-        print(f"⚠️  Consulta completa falló ({e}). Usando consulta básica.")
-        query = """
+        print(f"⚠️  Consulta completa falló ({type(e).__name__}). Usando consulta básica.")
+        filas = await database.fetch_all(query="""
             SELECT id, latitud, longitud, clase_corregida, subclase
             FROM reportes
             WHERE latitud IS NOT NULL AND longitud IS NOT NULL
-        """
-        filas = await database.fetch_all(query=query)
-        resultado = []
-        for f in filas:
-            tipo_final = f["subclase"] if f["subclase"] else f["clase_corregida"]
-            resultado.append({
-                "id":         int(f["id"]),
-                "lat":        float(f["latitud"]),
-                "lng":        float(f["longitud"]),
-                "tipo":       tipo_final or "pendiente",
-                "objeto_detectado": f["clase_corregida"] or "Desconocido",
-                "created_at": None,
-                "confianza":  None,
-                "tiene_foto": False,
-            })
-
-    print(f"✅ Enviando {len(resultado)} puntos al mapa.")
+        """)
+    resultado = [reporte_para_mapa({k: f[k] for k in f.keys()}, es_admin, FOTOS_PUBLICAS) for f in filas]
+    print(f"✅ Enviando {len(resultado)} puntos al mapa ({'admin' if es_admin else 'público'}).")
     return resultado
 
 
 @app.get("/api/v1/foto/{reporte_id}")
-async def proxy_foto(reporte_id: int):
+async def proxy_foto(reporte_id: int, x_api_key: str | None = Header(default=None)):
     """
     Proxy seguro de imágenes de Telegram.
     Soporta file_path y file_id. El token del bot nunca llega al browser.
     """
+    if not FOTOS_PUBLICAS and not _es_admin(x_api_key):
+        raise HTTPException(status_code=403, detail="La foto solo está disponible para administradores")
     query = "SELECT foto_url, foto_id FROM reportes WHERE id = :id"
     row = await database.fetch_one(query=query, values={"id": reporte_id})
 
@@ -273,7 +258,7 @@ async def proxy_foto(reporte_id: int):
             return Response(
                 content=resp.content,
                 media_type=resp.headers.get("content-type", "image/jpeg"),
-                headers={"Cache-Control": "public, max-age=86400"},
+                headers={"Cache-Control": "public, max-age=86400" if FOTOS_PUBLICAS else "private, max-age=300"},
             )
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"Error al contactar Telegram: {e}")
@@ -396,6 +381,41 @@ async def eliminar_reporte(reporte_id: int, token: str = Depends(verify_api_key)
         return {"status": "success", "message": f"Reporte {reporte_id} eliminado."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class CambioEstado(BaseModel):
+    estado: str
+
+
+async def _avisar_telegram(chat_id, texto: str) -> bool:
+    """Manda un mensaje al ciudadano. Nunca debe romper el cambio de estado ni filtrar el token en los logs."""
+    if not _tg_token:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.post(f"https://api.telegram.org/bot{_tg_token}/sendMessage",
+                                  json={"chat_id": chat_id, "text": texto})
+            return r.status_code == 200
+    except httpx.RequestError as e:
+        print(f"⚠️  No se pudo avisar por Telegram ({type(e).__name__})")  # el mensaje de la excepción puede traer la URL con el token
+        return False
+
+
+@app.patch("/api/v1/reportes/{reporte_id}/estado")
+async def cambiar_estado(reporte_id: int, cambio: CambioEstado, token: str = Depends(verify_api_key)):
+    if not es_estado_valido(cambio.estado):
+        raise HTTPException(status_code=422, detail="Estado no válido")
+    previo = await database.fetch_one("SELECT estado_gestion, chat_id FROM reportes WHERE id = :id", values={"id": reporte_id})
+    if previo is None:
+        raise HTTPException(status_code=404, detail="Reporte no encontrado")
+    anterior = previo["estado_gestion"] or "nuevo"
+    await database.execute(
+        "UPDATE reportes SET estado_gestion = :e, gestion_actualizada_en = NOW() WHERE id = :id",
+        values={"e": cambio.estado, "id": reporte_id})
+    notificado = False
+    if debe_notificar(anterior, cambio.estado) and previo["chat_id"]:
+        notificado = await _avisar_telegram(previo["chat_id"], mensaje_cambio(reporte_id, cambio.estado))
+    return {"status": "success", "id": reporte_id, "estado": cambio.estado, "notificado": notificado}
+
 
 @app.get("/api/v1/reportes/exportar")
 async def exportar_reportes(token: str = Depends(verify_api_key)):

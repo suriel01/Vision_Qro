@@ -52,6 +52,26 @@ const FILTROS = [
     { id: 'otros',   label: 'Otros/Pdte.',   icon: AlertCircle, color: '#f59e0b', match: ['pendiente', 'otro'] },
 ];
 
+// ── Estados de gestión del reporte ───────────────────────────
+const ESTADOS = [
+    { id: 'nuevo',      label: 'Nuevo',      color: '#3b82f6' },
+    { id: 'en_proceso', label: 'En proceso', color: '#f59e0b' },
+    { id: 'resuelto',   label: 'Resuelto',   color: '#22c55e' },
+];
+const getEstado = (id) => ESTADOS.find(e => e.id === id) ?? ESTADOS[0];
+
+// Nombres de los objetos que detecta el modelo, en español
+const OBJETOS_ES = {
+    'bottle': 'botella', 'cup': 'taza', 'wine glass': 'copa', 'cell phone': 'celular', 'laptop': 'laptop', 'keyboard': 'teclado',
+    'mouse': 'ratón', 'remote': 'control remoto', 'book': 'libro', 'scissors': 'tijeras', 'toothbrush': 'cepillo de dientes',
+    'vase': 'florero', 'fork': 'tenedor', 'knife': 'cuchillo', 'spoon': 'cuchara', 'bowl': 'tazón', 'backpack': 'mochila',
+    'handbag': 'bolsa de mano', 'suitcase': 'maleta', 'umbrella': 'paraguas', 'tie': 'corbata', 'frisbee': 'frisbee',
+    'skateboard': 'patineta', 'surfboard': 'tabla de surf', 'tennis racket': 'raqueta de tenis', 'baseball bat': 'bate de béisbol',
+    'baseball glove': 'guante de béisbol', 'sports ball': 'pelota', 'banana': 'plátano', 'apple': 'manzana', 'sandwich': 'sándwich',
+    'orange': 'naranja', 'broccoli': 'brócoli', 'carrot': 'zanahoria', 'hot dog': 'hot dog', 'pizza': 'pizza', 'donut': 'dona', 'cake': 'pastel',
+};
+const traducirObjeto = (n) => OBJETOS_ES[String(n ?? '').toLowerCase()] ?? n;
+
 // ── Capa de Mapa de Calor ───────────────────────────────────────────────────
 const heatmapLayer = {
     id: 'reportes-heatmap',
@@ -149,22 +169,12 @@ function LoginScreen({ onLogin }) {
                 }}
             >
                 {/* Logo / Título */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginBottom: 28 }}>
-                    <div style={{
-                        background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                        padding: 10, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)'
-                    }}>
-                        <Layers size={28} color="white" />
-                    </div>
-                    <h2 style={{
-                        margin: '10px 0 0', fontSize: 24, fontWeight: 900, letterSpacing: '-0.02em',
-                        background: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)',
-                        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                        textTransform: 'uppercase'
-                    }}>
-                        Vision Qro
-                    </h2>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginBottom: 28 }}>
+                    <img
+                        src="/logo.png" alt="Vision Qro, by Maxei Studios" width={190} height={190}
+                        style={{ display: 'block', borderRadius: 24, background: '#ffffff',
+                                 boxShadow: '0 0 30px rgba(59, 130, 246, 0.25)' }}
+                    />
                     <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
                         Sistema de Monitoreo Georreferenciado
                     </span>
@@ -280,16 +290,47 @@ function LoginScreen({ onLogin }) {
     );
 }
 
+// ── Foto del reporte: pública o solo para administradores ──────
+function useFotoSrc(info, token, fotosPublicas, esAdmin) {
+    // El resultado se guarda junto con la clave del reporte que lo produjo, así un resultado viejo nunca se muestra en otro popup.
+    const [res, setRes] = useState({ clave: null, src: null, error: false });
+    const clave = `${info.id}|${token ?? ''}`;
+    const hayFoto = !!info.tiene_foto;
+    const necesitaFetch = hayFoto && !fotosPublicas && esAdmin && !!token;
+    const idReporte = info.id;
+
+    useEffect(() => {
+        if (!necesitaFetch) return undefined;
+        let objectUrl = null;
+        let cancelado = false;
+        fetch(`${API_BASE_URL}/api/v1/foto/${idReporte}`, { headers: { 'X-API-Key': token } })
+            .then(r => { if (!r.ok) throw new Error('sin acceso'); return r.blob(); })
+            .then(blob => { if (cancelado) return; objectUrl = URL.createObjectURL(blob); setRes({ clave, src: objectUrl, error: false }); })
+            .catch(() => { if (!cancelado) setRes({ clave, src: null, error: true }); });
+        return () => { cancelado = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    }, [necesitaFetch, idReporte, token, clave]);
+
+    const actual = res.clave === clave ? res : { src: null, error: false };
+    const publica = hayFoto && fotosPublicas ? `${API_BASE_URL}/api/v1/foto/${idReporte}` : null;
+    return {
+        src: publica ?? actual.src,
+        error: actual.error,
+        setError: (e) => setRes({ clave, src: actual.src, error: e }),
+    };
+}
+
 // ── Componente Popup Premium ────────────────────────────────────────────────
-function ReportePopup({ info, onClose, userRole, onDelete, isLight, onExpandImage }) {
+function ReportePopup({ info, onClose, userRole, token, fotosPublicas, onDelete, onCambiarEstado, isLight, onExpandImage }) {
+    const esAdmin = userRole === 'admin';
     const ui    = getConfig(info.tipo);
     const Icon  = ui.icon;
     const fecha = formatFecha(info.created_at);
-    const [imgError, setImgError] = useState(false);
-    const fotoSrc = info.tiene_foto && !imgError
-        ? `${API_BASE_URL}/api/v1/foto/${info.id}`
-        : null;
+    const { src, error: imgError, setError: setImgError } = useFotoSrc(info, token, fotosPublicas, esAdmin);
+    const fotoSrc = imgError ? null : src;
     const isManual = info.confianza == null;
+    const estado = getEstado(info.estado_gestion);
+    const [aviso, setAviso] = useState('');
+    const [cambiando, setCambiando] = useState(false);
 
     return (
         <motion.div
@@ -335,7 +376,7 @@ function ReportePopup({ info, onClose, userRole, onDelete, isLight, onExpandImag
                         zIndex: 1
                     }}>
                         <Image size={32} color={isLight ? `${ui.bg}aa` : `${ui.bg}88`} />
-                        <span style={{ fontSize: 11, color: isLight ? '#94a3b8' : '#4b5563' }}>Sin foto</span>
+                        <span style={{ fontSize: 11, color: isLight ? '#94a3b8' : '#4b5563' }}>{(esAdmin || fotosPublicas) ? 'Sin foto' : 'Foto no pública'}</span>
                     </div>
                 )}
 
@@ -411,7 +452,7 @@ function ReportePopup({ info, onClose, userRole, onDelete, isLight, onExpandImag
 
             {/* ── CUERPO ── */}
             <div style={{ padding: '14px 16px 16px' }}>
-                {!isManual && (
+                {esAdmin && !isManual && (
                     <div style={{ marginBottom: 14 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: isLight ? '#64748b' : '#6b7280' }}>
@@ -433,20 +474,33 @@ function ReportePopup({ info, onClose, userRole, onDelete, isLight, onExpandImag
                     </div>
                 )}
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 99,
+                        background: `${estado.color}18`, border: `1px solid ${estado.color}44`, color: estado.color,
+                        fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em'
+                    }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: estado.color }} />
+                        {estado.label}
+                    </span>
+                </div>
+
                 <div style={{ height: 1, background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.07)', marginBottom: 12 }} />
 
+                {esAdmin && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <Layers size={13} color={isLight ? "#475569" : "#4b5563"} />
                     <span style={{ fontSize: 12, color: isLight ? '#64748b' : '#9ca3af', fontWeight: 600 }}>
                         ID de reporte: <span style={{ color: isLight ? '#0f172a' : 'white', fontWeight: 700 }}>{info.id}</span>
                     </span>
                 </div>
+                )}
 
-                {info.objeto_detectado && (
+                {esAdmin && info.objeto_detectado && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                         <Zap size={13} color={isLight ? "#475569" : "#4b5563"} />
                         <span style={{ fontSize: 12, color: isLight ? '#64748b' : '#9ca3af', fontWeight: 600 }}>
-                            Objeto{isManual ? '' : ' (YOLO)'}: <span style={{ color: isLight ? '#0f172a' : 'white', fontWeight: 700, textTransform: 'capitalize' }}>{info.objeto_detectado}</span>
+                            Objeto{isManual ? '' : ' (YOLO)'}: <span style={{ color: isLight ? '#0f172a' : 'white', fontWeight: 700, textTransform: 'capitalize' }}>{traducirObjeto(info.objeto_detectado)}</span>
                         </span>
                     </div>
                 )}
@@ -460,12 +514,14 @@ function ReportePopup({ info, onClose, userRole, onDelete, isLight, onExpandImag
                     </div>
                 )}
 
+                {esAdmin && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <MapPin size={13} color={isLight ? "#475569" : "#4b5563"} />
                     <span style={{ fontSize: 12, color: isLight ? '#64748b' : '#9ca3af', fontVariantNumeric: 'tabular-nums' }}>
                         {info.lat?.toFixed(6)}, {info.lng?.toFixed(6)}
                     </span>
                 </div>
+                )}
 
                 {/* Badges inferiores */}
                 {fecha && (
@@ -474,6 +530,7 @@ function ReportePopup({ info, onClose, userRole, onDelete, isLight, onExpandImag
                         <span style={{ fontSize: 12, color: isLight ? '#64748b' : '#9ca3af' }}>{fecha}</span>
                     </div>
                 )}
+                {esAdmin && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <div style={{
                         display:     'inline-flex',
@@ -517,6 +574,7 @@ function ReportePopup({ info, onClose, userRole, onDelete, isLight, onExpandImag
                         </span>
                     </div>
                 </div>
+                )}
 
                 {/* Botón de Google Maps GPS */}
                 <a
@@ -544,6 +602,41 @@ function ReportePopup({ info, onClose, userRole, onDelete, isLight, onExpandImag
                     <Navigation size={13} />
                     <span>Ver ruta en GPS</span>
                 </a>
+
+                {/* Estado del reporte (solo Administrador): al pasar a "en proceso" o "resuelto" se avisa al ciudadano por Telegram */}
+                {esAdmin && (
+                    <div style={{ marginTop: 12 }}>
+                        <div style={{ fontSize: 11, color: isLight ? '#64748b' : '#9ca3af', fontWeight: 600, marginBottom: 6 }}>Estado del reporte</div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            {ESTADOS.map(e => {
+                                const actual = e.id === (info.estado_gestion || 'nuevo');
+                                return (
+                                    <button
+                                        key={e.id}
+                                        disabled={cambiando || actual}
+                                        onClick={async () => {
+                                            setCambiando(true); setAviso('');
+                                            try {
+                                                const r = await onCambiarEstado(info.id, e.id);
+                                                setAviso(e.id === 'nuevo' ? '' : (r.notificado ? 'Aviso enviado al ciudadano por Telegram' : 'Estado guardado (no se pudo avisar por Telegram)'));
+                                            } catch (err) { setAviso(err.message); }
+                                            finally { setCambiando(false); }
+                                        }}
+                                        style={{
+                                            flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                                            cursor: (cambiando || actual) ? 'default' : 'pointer',
+                                            border: `1px solid ${e.color}${actual ? 'aa' : '44'}`,
+                                            background: actual ? `${e.color}33` : 'transparent', color: e.color, opacity: cambiando ? 0.6 : 1
+                                        }}
+                                    >
+                                        {e.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {aviso && <div style={{ fontSize: 11, marginTop: 6, color: isLight ? '#64748b' : '#9ca3af' }}>{aviso}</div>}
+                    </div>
+                )}
 
                 {/* Botón de Eliminar Reporte (Solo Administrador) */}
                 {userRole === 'admin' && (
@@ -587,6 +680,8 @@ export default function InteractiveMap() {
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState(null);
     const [expandedImage, setExpandedImage] = useState(null);
+    const [fotosPublicas, setFotosPublicas] = useState(false);
+    const [estadoFiltro, setEstadoFiltro]   = useState('todos');
     
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
     
@@ -618,7 +713,7 @@ export default function InteractiveMap() {
     const cargarReportes = useCallback(() => {
         setLoading(true);
         setError(null);
-        fetch(`${API_BASE_URL}/api/v1/reportes-mapa`)
+        fetch(`${API_BASE_URL}/api/v1/reportes-mapa`, { headers: token ? { 'X-API-Key': token } : {} })
             .then(r => { if (!r.ok) throw new Error(`Error ${r.status}`); return r.json(); })
             .then(data => {
                 const procesados = data.map(p => {
@@ -641,6 +736,14 @@ export default function InteractiveMap() {
             })
             .catch(e => setError(e.message))
             .finally(() => setLoading(false));
+    }, [token]);
+
+    // ¿Las fotos son públicas? Lo decide el servidor (FOTOS_PUBLICAS)
+    useEffect(() => {
+        fetch(`${API_BASE_URL}/api/v1/config`)
+            .then(r => (r.ok ? r.json() : null))
+            .then(c => { if (c) setFotosPublicas(!!c.fotos_publicas); })
+            .catch(() => {});
     }, []);
 
     useEffect(() => {
@@ -738,16 +841,31 @@ export default function InteractiveMap() {
         }
     };
 
+    // ── Cambiar el estado de un reporte (Admin) ──
+    const cambiarEstado = useCallback(async (id, estado) => {
+        const r = await fetch(`${API_BASE_URL}/api/v1/reportes/${id}/estado`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': token },
+            body: JSON.stringify({ estado })
+        });
+        if (!r.ok) throw new Error('No se pudo cambiar el estado');
+        const data = await r.json();
+        setReportes(prev => prev.map(x => (x.id === id ? { ...x, estado_gestion: estado } : x)));
+        setPopupInfo(p => (p && p.id === id ? { ...p, estado_gestion: estado } : p));
+        return data;
+    }, [token]);
+
     // ── Filtrado ──
     const reportesFiltrados = useMemo(() => {
         return reportes.filter(r => {
+            if (estadoFiltro !== 'todos' && (r.estado_gestion || 'nuevo') !== estadoFiltro) return false;
             const t = r.tipo.toLowerCase();
             return Array.from(activeFilters).some(fid => {
                 const filtro = FILTROS.find(f => f.id === fid);
                 return filtro && filtro.match.includes(t);
             });
         });
-    }, [reportes, activeFilters]);
+    }, [reportes, activeFilters, estadoFiltro]);
 
     // ── Métricas y Estadísticas ──
     const stats = useMemo(() => {
@@ -951,7 +1069,7 @@ export default function InteractiveMap() {
                                         e.stopPropagation(); 
                                         seleccionarReporte(p); 
                                     }}
-                                    title={ui.label}
+                                    title={`${ui.label} · ${getEstado(p.estado_gestion).label}`}
                                     initial={{ scale: 0, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
                                     transition={{ type: 'spring', stiffness: 260, damping: 20, delay: Math.min(i * 0.02, 0.5) }}
@@ -966,7 +1084,8 @@ export default function InteractiveMap() {
                                         display:      'flex',
                                         alignItems:   'center',
                                         justifyContent:'center',
-                                        boxShadow:    `0 0 0 3px ${ui.bg}44, 0 4px 14px rgba(0,0,0,0.5)`,
+                                        boxShadow:    `0 0 0 3px ${(p.estado_gestion && p.estado_gestion !== 'nuevo') ? getEstado(p.estado_gestion).color + 'aa' : ui.bg + '44'}, 0 4px 14px rgba(0,0,0,0.5)`,
+                                        opacity:      p.estado_gestion === 'resuelto' ? 0.6 : 1,
                                     }}
                                 >
                                     <Icon size={15} color="white" />
@@ -990,7 +1109,7 @@ export default function InteractiveMap() {
                             maxWidth="none"
                             style={{ padding: 0, background: 'transparent', border: 'none' }}
                         >
-                            <ReportePopup info={popupInfo} onClose={() => setPopupInfo(null)} userRole={userRole} onDelete={eliminarReporte} isLight={isLight} onExpandImage={setExpandedImage} />
+                            <ReportePopup info={popupInfo} onClose={() => setPopupInfo(null)} userRole={userRole} token={token} fotosPublicas={fotosPublicas} onCambiarEstado={cambiarEstado} onDelete={eliminarReporte} isLight={isLight} onExpandImage={setExpandedImage} />
                         </Popup>
                     )}
                 </AnimatePresence>
@@ -1441,6 +1560,27 @@ export default function InteractiveMap() {
                 </div>
 
                 <div style={{ height: 1, background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }} />
+
+                {/* Estado del reporte */}
+                <div style={{ display: 'flex', gap: 4 }}>
+                    {[{ id: 'todos', label: 'Todos', color: null }, ...ESTADOS].map(e => {
+                        const activo = estadoFiltro === e.id;
+                        return (
+                            <button
+                                key={e.id}
+                                onClick={() => setEstadoFiltro(e.id)}
+                                style={{
+                                    flex: '1 1 auto', padding: '5px 4px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+                                    background: activo ? (e.color ? `${e.color}33` : (isLight ? 'white' : 'rgba(255,255,255,0.15)')) : 'transparent',
+                                    color: activo ? (e.color || (isLight ? '#1f2937' : 'white')) : hudMuted,
+                                    boxShadow: activo && !e.color && isLight ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                                }}
+                            >
+                                {e.label}
+                            </button>
+                        );
+                    })}
+                </div>
 
                 {/* Filtros */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: 4 }}>

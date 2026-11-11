@@ -307,7 +307,21 @@ python3 -I vision_qro_backend/ai_service/test_candidatos.py   # pruebas de la l�
 python3 utils/build_workflow_selector.py                      # regenera los nodos del selector
 ```
 
-## 12. Recomendaciones de hardware para operación 24/7
+## 12. Privacidad del mapa y estados de reporte
+
+- **Invitados** ven en el mapa: ubicación, tipo, tamaño del bache, fecha y estado. (El mapa dibuja cada punto con un pequeño desplazamiento visual, pero la API entrega las coordenadas exactas.) No ven el ID,
+  la confianza de la IA, el objeto detectado, las coordenadas exactas ni la foto. La API tampoco se los entrega (`/api/v1/reportes-mapa` sin clave).
+- **Administrador** (con `X-API-Key`) ve además los datos técnicos y las fotos (`/api/v1/foto/{id}` exige la clave).
+- **Fotos públicas.** Por defecto no lo son. Para hacerlas públicas pon `FOTOS_PUBLICAS=true` en el `.env` y recrea `ai_brain`.
+  Si lo haces, actualiza antes la política de privacidad (`vision-qro-frontend/public/privacidad.html`).
+- **Estados:** `nuevo`, `en_proceso`, `resuelto` (columna `estado_gestion`, distinta del `estado` interno del bot). Se cambian desde el popup
+  del reporte como administrador. Al pasar a *en proceso* o *resuelto* el ciudadano recibe un mensaje por Telegram; reabrir (*nuevo*) no avisa.
+  El panel tiene un filtro por estado y los marcadores se atenúan o cambian de borde según el estado.
+- Pruebas de la lógica: `python3 -B -I vision_qro_backend/ai_service/test_gestion_y_vista.py`.
+- Logo y miniatura: `vision-qro-frontend/public/` (original en `docs/branding/`). La miniatura al compartir el enlace es `og-image.png`;
+  Telegram y otras apps guardan la vista previa en caché y pueden tardar en actualizarla.
+
+## 13. Recomendaciones de hardware para operación 24/7
 
 1. **Alimentación constante:** conecta la Jetson a la pared con su eliminador oficial. No la alimentes solo por USB si la GPU procesa imágenes.
 2. **Ventilación:** mantén libre el disipador y el ventilador para evitar sobrecalentamiento durante la inferencia con YOLO.

@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS reportes (
     chat_id           BIGINT,
     foto_id           TEXT,
     estado            VARCHAR(50),
+    -- Estado de gestión (lo cambia un administrador; lo ve todo el mundo en el mapa)
+    estado_gestion         VARCHAR(20) NOT NULL DEFAULT 'nuevo' CHECK (estado_gestion IN ('nuevo', 'en_proceso', 'resuelto')),
+    gestion_actualizada_en TIMESTAMPTZ,
     created_at        TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -60,3 +63,5 @@ SELECT p.id AS prediccion_id, p.reporte_id, p.foto_path, p.modelo,
 FROM predicciones p
 JOIN reportes r ON r.id = p.reporte_id
 WHERE r.estado IN ('validado', 'corregido_por_humano') AND r.subclase IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_reportes_estado_gestion ON reportes (estado_gestion);
