@@ -65,6 +65,7 @@ cd ~/Vision_Qro_bak/vision_qro_backend
 | `cloudflared` | `vision_qro_tunnel` | ninguno |
 | `ai_brain` | `vision_qro_ai` | 8000 |
 | `frontend` | `vision_qro_frontend` | 5173 |
+| `llm` | `vision_qro_llm` | ninguno (solo red interna) |
 
 Los contenedores arrancan solos tras un reinicio (`restart: always`).
 
@@ -111,6 +112,13 @@ sed -i "s|^API_KEY=.*|API_KEY=$(openssl rand -hex 32)|" .env
 
 Después de cualquiera de los dos, recrea `ai_brain` (sección 4).
 
+**Límite de intentos del login.** Tras 5 contraseñas incorrectas desde el mismo cliente (o 30 en total) en 5 minutos,
+`/api/v1/auth` responde 429 y el panel lo avisa. Se libera solo a los 5 minutos; recrear `ai_brain` borra los contadores.
+Si alguien llegara a conocer la contraseña, el límite no ayuda: cámbiala.
+
+**Borrar todos los reportes** desde el panel (icono rojo) es irreversible: borra también sus predicciones y las copias de fotos.
+Haz un respaldo antes (sección 6).
+
 ## 6. Respaldos
 
 Cada día a las **03:00** el cron ejecuta `utils/backup_db.sh`:
@@ -119,6 +127,12 @@ Cada día a las **03:00** el cron ejecuta `utils/backup_db.sh`:
 - Lo sube **cifrado** a Google Drive con `rclone` (remoto `gdrive-crypt:db`).
 - Conserva 14 días, local y en Drive.
 - El registro queda en `backups/backup.log`.
+
+**Cómo funcionan.** Cada respaldo es una copia completa de la base en ese momento, no un espejo. Si borras un reporte
+después, **sigue en los respaldos anteriores hasta que caducan (14 días)**; no se puede quitar una fila de un respaldo.
+Restaurar reemplaza toda la base; para recuperar un solo reporte se carga el respaldo en una base temporal y se copia esa fila.
+Las fotos de entrenamiento no van en los respaldos. La hora del cron es la de la Jetson (hoy UTC+8: las 03:00 son las 13:00 en Querétaro).
+Los respaldos subidos con un `client_id` de rclone anterior no se ven ni se borran solos: elimínalos a mano en Drive.
 
 **Hacer un respaldo ahora:**
 
@@ -238,7 +252,62 @@ docker cp vision_qro_ai:/app/uploads/entrenamiento ./entrenamiento
 - La política de privacidad ya explica este uso. Si cambias cómo se guardan o se usan las fotos, actualiza
   `vision-qro-frontend/public/privacidad.html`.
 
-## 10. Recomendaciones de hardware para operación 24/7
+## 10. Asistente de texto (IA local)
+
+El texto libre que no es parte del flujo de reporte lo atiende un modelo pequeño (`qwen3:1.7b`) que corre en la Jetson, en el
+contenedor `vision_qro_llm`. Solo se alcanza dentro de la red de Docker. El flujo de reportes (foto, ubicación, análisis, botones)
+**no depende de él**: si cae o tarda más de 40 s, el bot responde con textos fijos.
+
+- Primera vez, o si borras el volumen `llm_models`: `docker exec vision_qro_llm ollama pull qwen3:1.7b`.
+- La IA no tiene herramientas, no toca la base y nunca recibe fotos ni ubicaciones.
+- Es independiente del Ollama instalado en el sistema (puerto 11434 de la Jetson), que no se usa.
+
+**Protecciones, en este orden**
+
+1. *Filtro previo* (sin llamar al modelo): inyección y órdenes de formato, temas ajenos, preguntas de privacidad de fotos, saludos, ayuda y
+   "borrar mi reporte" reciben respuestas fijas.
+2. *Límite de texto:* 10 mensajes por minuto por chat y 40 por minuto para el modelo. **No aplica a fotos, ubicaciones ni botones.**
+   Para eximir a un chat del límite de texto, agrega su ID en `EXENTOS` del nodo `Clasificar texto` (un nuevo import desde el repositorio lo reinicia).
+3. *Modelo con prompt restringido.*
+4. *Filtro de salida:* enlaces, teléfonos, correos, promesas, consejos médicos, respuestas en inglés o sin relación con el bot se sustituyen por un texto fijo.
+
+**Cambiar las reglas.** La fuente de verdad es `utils/asistente/guardrails.js`. No edites a mano los nodos `Clasificar texto` ni
+`Filtrar respuesta`: se generan desde ese archivo.
+
+```bash
+node utils/asistente/test_guardrails.js                      # pruebas de las reglas
+python3 utils/asistente/build_workflow_asistente.py          # regenera los nodos en n8n_Telegram.json
+```
+
+Prueba adversaria contra el modelo real (ejecutar en la Jetson, desde la raíz del repositorio):
+
+```bash
+docker cp utils/asistente vision_qro_n8n:/tmp/asistente && docker cp n8n_Telegram.json vision_qro_n8n:/tmp/wf.json
+docker exec vision_qro_n8n node /tmp/asistente/probar_modelo.js /tmp/wf.json
+```
+
+Pasar esas pruebas no garantiza que el modelo no diga algo raro: revisa las respuestas a ojo cada vez que cambies modelo o prompt.
+
+**Memoria.** El límite de memoria del compose no controla la que usa la GPU. Con el modelo cargado quedan unos 1.7 a 2 GB disponibles:
+revisa `free -m` y, si falta memoria, `docker compose stop llm` (el bot sigue con textos fijos).
+Los mensajes de texto se procesan en la Jetson; el historial técnico de n8n los conserva unos 7 días.
+
+## 11. Selector de objeto
+
+Si la foto trae varios objetos, `/predict` devuelve `candidatos` y `ambiguo`. El puntaje combina confianza y tamaño del objeto en la foto
+(`ai_service/candidatos.py`: confianza mínima 40 %, y hay duda si el segundo candidato tiene al menos la mitad del puntaje del primero).
+
+- Con duda, el bot pregunta con un botón por candidato y "Otra cosa". "Otra cosa" continúa en el flujo manual (nombre, bache o basura, tamaño).
+- Sin duda, se preselecciona el objeto dominante y se pide confirmar, como siempre.
+- Un reporte esperando elección tiene estado `esperando_objeto`; si llega otra foto, pasa a `pendiente_manual`.
+- Los umbrales son una decisión de diseño: si el bot pregunta demasiado o muy poco, ajusta las constantes y vuelve a probar.
+
+```bash
+python3 -I vision_qro_backend/ai_service/test_candidatos.py   # pruebas de la lógica de candidatos
+python3 utils/build_workflow_selector.py                      # regenera los nodos del selector
+```
+
+## 12. Recomendaciones de hardware para operación 24/7
 
 1. **Alimentación constante:** conecta la Jetson a la pared con su eliminador oficial. No la alimentes solo por USB si la GPU procesa imágenes.
 2. **Ventilación:** mantén libre el disipador y el ventilador para evitar sobrecalentamiento durante la inferencia con YOLO.

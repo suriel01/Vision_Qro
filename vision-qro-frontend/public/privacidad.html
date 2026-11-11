@@ -40,6 +40,8 @@
         <strong>una copia de la foto en nuestro servidor</strong> y el resultado del análisis automático.</li>
     <li><strong>Datos de Telegram:</strong> el identificador de tu chat con el bot y tu nombre de usuario (o tu nombre, si no
         tienes usuario) tal como Telegram lo entrega al bot.</li>
+    <li><strong>Mensajes de texto</strong> que escribes al bot (por ejemplo, para pedir ayuda): los atiende un asistente automático
+        que corre en nuestro propio servidor; no se envían a terceros.</li>
   </ul>
   <p>No pedimos contraseñas, datos bancarios ni documentos de identidad.</p>
 
@@ -48,6 +50,8 @@
     <li>Registrar tu reporte y mostrarlo en el mapa.</li>
     <li>Clasificar automáticamente la foto con un modelo de visión por computadora (YOLO) que corre en nuestro propio servidor.</li>
     <li>Responderte en el chat del bot (confirmaciones, avisos de error).</li>
+    <li>Atender tus mensajes de texto con un asistente automático que solo responde sobre el uso de Vision Qro. Puede equivocarse y
+        no representa a ninguna autoridad ni constituye un trámite oficial.</li>
     <li>Mejorar el modelo de clasificación: las fotos de reportes que una persona ya revisó pueden usarse para
         entrenarlo y evaluarlo. Ese entrenamiento se hace en equipos del responsable; las fotos no se publican
         ni se entregan a terceros para ese fin.</li>
@@ -87,7 +91,8 @@
   <p>
     Los reportes y la copia de su foto se conservan mientras el servicio esté en operación o hasta que se eliminen.
     Al eliminar un reporte se borra también la copia de su foto en nuestro servidor. Los respaldos de la base de datos se borran
-    automáticamente a los 14 días.
+    automáticamente a los 14 días. Los mensajes de texto que escribes al asistente permanecen unos 7 días en el historial técnico del
+    sistema y después se eliminan.
   </p>
 
   <h2>6. Tus derechos</h2>
@@ -111,7 +116,7 @@
   <h2>English summary</h2>
   <p>
     Vision Qro lets residents report litter and potholes in Querétaro through a Telegram bot, with a public map. We store the
-    photo and location you send (including a copy of the photo on our own server), the report date and classification, and your Telegram chat identifier and username (or first name).
+    photo and location you send (including a copy of the photo on our own server), and any text messages you write to the bot, which are handled by an automated assistant running on our own server (not sent to third parties, kept about 7 days in the system's technical history, and possibly inaccurate), the report date and classification, and your Telegram chat identifier and username (or first name).
     The public map shows location, report type, date and photo, but not your Telegram username. Data is stored on a
     server operated by the data controller; encrypted daily backups are uploaded to the controller's own Google Drive using
     only the <code>drive.file</code> scope, and kept for 14 days; backups do not include photo copies. Photos of reports already reviewed by a person may be used to train and evaluate the classification model, on the controller's own equipment, and are deleted with the report. Use of information received from Google APIs complies with the
