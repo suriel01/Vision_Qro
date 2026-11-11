@@ -57,6 +57,7 @@ export const ColumnChart = memo(function ColumnChart({
 }) {
   const ref = useRef(null);
   const ancho = useAncho(ref);
+  const [activo, setActivo] = useState(null);
 
   const g = useMemo(() => {
     const n = datos.length;
@@ -74,6 +75,19 @@ export const ColumnChart = memo(function ColumnChart({
   }, [datos, linea, ancho, alto, valoresVisibles]);
 
   const cx = (i) => M.izq + g.banda * (i + 0.5);
+  const foco = activo ?? resaltar;
+
+  // Un solo manejador para ratón y dedo: la columna se calcula por la posición horizontal, así no hay que acertar a una barra delgada
+  const alApuntar = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const i = Math.floor(((e.clientX - r.left) / r.width * ancho - M.izq) / g.banda);
+    setActivo(i >= 0 && i < g.n ? i : null);
+  };
+  const alTeclear = (e) => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); setActivo((a) => (a === null ? 0 : Math.min(g.n - 1, a + 1))); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); setActivo((a) => (a === null ? g.n - 1 : Math.max(0, a - 1))); }
+    else if (e.key === 'Escape') setActivo(null);
+  };
   const puntosLinea = linea
     ? linea.map((v, i) => (v === null ? null : [cx(i), g.y(v)])).filter(Boolean)
     : [];
@@ -84,10 +98,17 @@ export const ColumnChart = memo(function ColumnChart({
       {ruta && etiquetaLinea && (
         <p className="an-leyenda"><span className="an-leyenda__linea" aria-hidden="true" />{etiquetaLinea}</p>
       )}
+      <div
+        className="an-lienzo" tabIndex={0} role="group" aria-label={`${ariaLabel} Usa las flechas izquierda y derecha para ver cada valor.`}
+        onKeyDown={alTeclear} onBlur={() => setActivo(null)}
+        onPointerMove={alApuntar} onPointerDown={alApuntar}
+        onPointerLeave={(e) => { if (e.pointerType === 'mouse') setActivo(null); }}
+      >
       <svg
-        className="an-svg" role="img" aria-label={ariaLabel}
+        className="an-svg" role="img" aria-hidden="true"
         width="100%" viewBox={`0 0 ${ancho} ${alto}`} style={{ height: 'auto', aspectRatio: `${ancho} / ${alto}` }}
       >
+        {activo !== null && <rect className="an-banda" x={M.izq + g.banda * activo} y={M.arriba} width={g.banda} height={g.plotH} />}
         {g.ticks.map((t) => (
           <g key={t}>
             <line className={t === 0 ? 'an-eje' : 'an-rejilla'} x1={M.izq} x2={M.izq + g.plotW} y1={g.y(t)} y2={g.y(t)} />
@@ -98,14 +119,15 @@ export const ColumnChart = memo(function ColumnChart({
         ))}
         {datos.map((d, i) => {
           const h = g.plotH * (d.valor / g.ticks[g.ticks.length - 1]);
-          const destacada = resaltar === i;
-          const tenue = resaltar !== null && !destacada;
+          const destacada = foco === i;
+          const tenue = foco !== null && !destacada;
           const x = cx(i) - g.barW / 2;
           const etiqueta = etiquetaX(i);
           return (
             <g key={d.clave}>
               <rect
-                className={`an-columna${tenue ? ' an-columna--tenue' : ''}`}
+                className={`an-columna${tenue ? ' an-columna--tenue' : ''}${activo === i ? ' an-columna--activa' : ''}`}
+                style={{ '--i': Math.min(i, 40) }}
                 x={x} y={g.y(d.valor)} width={g.barW} height={Math.max(0, h)} rx={g.barW >= 6 ? 2 : 0}
               >
                 <title>{`${d.etiqueta}: ${formatearNumero(d.valor)}`}</title>
@@ -128,11 +150,28 @@ export const ColumnChart = memo(function ColumnChart({
           );
         })}
         {ruta && (
-          <g>
+          <g className="an-linea-grupo">
             <path className="an-linea" d={ruta} />
           </g>
         )}
+        {activo !== null && linea && linea[activo] !== null && linea[activo] !== undefined && (
+          <circle className="an-punto" cx={cx(activo)} cy={g.y(linea[activo])} r="4" />
+        )}
       </svg>
+      {activo !== null && datos[activo] && (
+        <div
+          className={`an-tip${activo < g.n * 0.15 ? ' an-tip--izq' : activo > g.n * 0.85 ? ' an-tip--der' : ''}`}
+          style={{ left: `${(cx(activo) / ancho) * 100}%`, top: `${(g.y(datos[activo].valor) / alto) * 100}%` }}
+          role="status"
+        >
+          <strong className="num">{formatearNumero(datos[activo].valor)}</strong>
+          <span>{datos[activo].etiqueta}</span>
+          {linea && linea[activo] !== null && linea[activo] !== undefined && (
+            <span className="an-tip__linea">{etiquetaLinea || 'Promedio'}: <span className="num">{formatearNumero(Math.round(linea[activo] * 10) / 10)}</span></span>
+          )}
+        </div>
+      )}
+      </div>
       <TablaDatos titulo={titulo} columnaEtiqueta={columnaEtiqueta} columnaValor={columnaValor} filas={datos} />
     </div>
   );
@@ -146,10 +185,10 @@ export const BarList = memo(function BarList({ items, total = null, ariaLabel })
   const max = Math.max(0, ...items.map((i) => i.valor));
   return (
     <ul className="an-barras" aria-label={ariaLabel}>
-      {items.map((it) => {
+      {items.map((it, idx) => {
         const pct = total === null ? null : porcentaje(it.valor, total);
         return (
-          <li key={it.clave} className={`an-barra${it.tenue ? ' an-barra--tenue' : ''}${it.enfasis ? ' an-barra--enfasis' : ''}`}>
+          <li key={it.clave} style={{ '--i': idx }} className={`an-barra${it.tenue ? ' an-barra--tenue' : ''}${it.enfasis ? ' an-barra--enfasis' : ''}`}>
             <span className="an-barra__et">{it.etiqueta}</span>
             <span className="an-barra__val num">
               {formatearNumero(it.valor)}
@@ -170,17 +209,25 @@ export const BarList = memo(function BarList({ items, total = null, ariaLabel })
 
 /** Barra única al 100 % dividida en segmentos, con lista de etiquetas, cifras y porcentajes. */
 export const StackedBar = memo(function StackedBar({ segmentos, ariaLabel }) {
+  const [activo, setActivo] = useState(null);
   const total = segmentos.reduce((a, s) => a + s.valor, 0);
   return (
     <div className="an-apilada">
       <div className="an-apilada__barra" role="img" aria-label={ariaLabel}>
         {segmentos.map((s) => (
-          <span key={s.clave} className="an-apilada__seg" style={{ flexGrow: s.valor, background: s.color }} />
+          <span
+            key={s.clave} className={`an-apilada__seg${activo && activo !== s.clave ? ' an-apilada__seg--tenue' : ''}`}
+            style={{ flexGrow: s.valor, background: s.color }} title={`${s.etiqueta}: ${formatearNumero(s.valor)}`}
+            onPointerEnter={() => setActivo(s.clave)} onPointerLeave={() => setActivo(null)}
+          />
         ))}
       </div>
       <ul className="an-apilada__lista">
         {segmentos.map((s) => (
-          <li key={s.clave}>
+          <li
+            key={s.clave} className={activo === s.clave ? 'is-activa' : ''}
+            onPointerEnter={() => setActivo(s.clave)} onPointerLeave={() => setActivo(null)}
+          >
             <span className="an-apilada__muestra" aria-hidden="true" style={{ background: s.color }} />
             <span className="an-apilada__et">{s.etiqueta}</span>
             <span className="an-apilada__val num">

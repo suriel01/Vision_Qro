@@ -1,8 +1,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL } from '../../config.js';
 import { BarList, ColumnChart, StackedBar } from './charts.jsx';
+import TablaZonas from './TablaZonas.jsx';
+import Contador from '../Contador.jsx';
 import {
-  DIAS_SEMANA, etiquetaFecha, etiquetaFechaLarga, formatearCoordenadas, formatearFechaHora, formatearHoras,
+  DIAS_SEMANA, etiquetaFecha, etiquetaFechaLarga, formatearFechaHora, formatearHoras,
   formatearNumero, formatearPorcentaje, formatearVariacion, indiceDiaDestacado, maximoYFecha, mediaMovil,
   porcentaje, resumenDiaSemana, resumenHora, textoPeriodo, ventanaHoraDestacada,
 } from './formato.js';
@@ -35,7 +37,7 @@ function Indicador({ etiqueta, valor, nota }) {
   return (
     <article className="an-card an-col-3 an-kpi">
       <h2 className="an-kpi__et">{etiqueta}</h2>
-      <p className="an-kpi__valor num">{valor}</p>
+      <p className="an-kpi__valor num"><Contador texto={valor} /></p>
       <p className="an-kpi__nota">{nota}</p>
     </article>
   );
@@ -45,7 +47,7 @@ function Cifra({ etiqueta, valor, nota }) {
   return (
     <div className="an-cifra">
       <dt>{etiqueta}</dt>
-      <dd className="an-cifra__valor num">{valor}</dd>
+      <dd className="an-cifra__valor num"><Contador texto={valor} /></dd>
       {nota && <dd className="an-cifra__nota">{nota}</dd>}
     </div>
   );
@@ -126,7 +128,6 @@ function Informe({ data, onVerEnMapa }) {
   ];
 
   const zonas = data.zonas_calientes ?? [];
-  const topZona = zonas.reduce((m, z) => Math.max(m, n0(z.n)), 0);
   const rep = data.repetidos ?? {};
   const cal = data.calidad ?? {};
   const mod = data.modelo;
@@ -240,40 +241,7 @@ function Informe({ data, onVerEnMapa }) {
           {zonas.length === 0 ? (
             <p className="an-vacio">Ninguna zona reúne todavía al menos 3 reportes en este periodo.</p>
           ) : (
-            <div className="an-tabla-scroll">
-              <table className="an-tabla an-zonas">
-                <thead>
-                  <tr>
-                    <th scope="col">N.º</th>
-                    <th scope="col">Ubicación (latitud, longitud)</th>
-                    <th scope="col" className="an-der">Reportes</th>
-                    <th scope="col">Frente a la zona con más reportes</th>
-                    {onVerEnMapa && <th scope="col" className="an-noprint"><span className="sr-only">Acción</span></th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {zonas.map((z, i) => (
-                    <tr key={`${z.lat},${z.lng}`}>
-                      <td className="num">{i + 1}</td>
-                      <td className="num">{formatearCoordenadas(z.lat, z.lng)}</td>
-                      <td className="num an-der">{formatearNumero(z.n)}</td>
-                      <td>
-                        <span className="an-barra__pista an-zonas__pista" aria-hidden="true">
-                          <span className="an-barra__relleno" style={{ width: topZona > 0 ? `${(n0(z.n) / topZona) * 100}%` : 0 }} />
-                        </span>
-                      </td>
-                      {onVerEnMapa && (
-                        <td className="an-der an-noprint">
-                          <button type="button" className="an-btn an-btn--leve" onClick={() => onVerEnMapa(z.lat, z.lng)}>
-                            Ver en el mapa<span className="sr-only">: zona {i + 1}</span>
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <TablaZonas zonas={zonas} onVerEnMapa={onVerEnMapa} />
           )}
           <p className="an-nota">
             Las zonas son cuadrículas de unos 275 m y solo se muestran las que reúnen al menos 3 reportes, para proteger la privacidad de quien reporta.

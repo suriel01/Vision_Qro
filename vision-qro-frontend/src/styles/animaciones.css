@@ -1,0 +1,83 @@
+/* Animaciones de la app. Todas se apagan con "Animaciones reducidas" (ajustes) o la preferencia del sistema,
+   porque tokens.css y mapa.css reducen cualquier animación a casi cero en esos casos. */
+:root { --ease-salida: cubic-bezier(.2, .8, .2, 1); --ease-rebote: cubic-bezier(.2, 1.4, .4, 1); }
+
+@keyframes entra-arriba { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes entra-opaco  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes entra-izq    { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@keyframes entra-der    { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes entra-hoja   { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@keyframes entra-pop    { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
+@keyframes crece-alto   { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes crece-ancho  { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes revela-linea { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+/* Vistas (Mapa / Análisis) */
+.view { animation: entra-opaco .35s var(--ease-salida) both; }
+.view--scroll { animation: entra-arriba .4s var(--ease-salida) both; }
+
+/* Paneles y ventanas */
+.panel--left { animation: entra-izq .4s var(--ease-salida) both; }
+.panel--right { animation: entra-der .4s var(--ease-salida) .06s both; }
+.popup { transform-origin: 50% 100%; animation: entra-pop .26s var(--ease-rebote) both; }
+.ajustes__fondo { animation: entra-opaco .2s ease both; }
+.ajustes { animation: entra-pop .28s var(--ease-rebote) both; }
+.lightbox { animation: entra-opaco .2s ease both; }
+@media (max-width: 768px) {
+  .panel--left, .panel--right { animation: entra-hoja .35s var(--ease-salida) both; }
+  .ajustes { animation: entra-hoja .35s var(--ease-salida) both; }
+}
+
+/* Respuesta al tacto y al cursor */
+.btn, .iconbtn, .seg__btn, .topbar__tab, .an-btn, .an-segmentado__op, .link-btn, .recent__item, .check, .badge {
+  transition: background-color .15s, color .15s, border-color .15s, transform .12s var(--ease-salida), box-shadow .15s;
+}
+.btn:active, .iconbtn:active, .seg__btn:active, .an-btn:active, .an-segmentado__op:active, .recent__item:active { transform: scale(.95); }
+.btn:hover, .an-btn:hover { box-shadow: var(--shadow-1); }
+.seg__btn[aria-pressed="true"] { animation: entra-pop .2s var(--ease-rebote); }
+.topbar__tab { position: relative; }
+.recent__item:hover .recent__dot { transform: scale(1.4); }
+.recent__dot { transition: transform .15s var(--ease-rebote); }
+.bars__fill { transform-origin: left; animation: crece-ancho .7s var(--ease-salida) both; }
+.iconbtn:hover svg { transform: rotate(8deg); }
+.iconbtn svg { transition: transform .2s var(--ease-rebote); }
+
+/* Tarjetas del análisis: entran escalonadas y se elevan al pasar el cursor */
+.an-card { animation: entra-arriba .5s var(--ease-salida) backwards; transition: transform .2s var(--ease-salida), box-shadow .2s, border-color .2s; }
+.an-grid > .an-card:nth-child(2) { animation-delay: .06s; }
+.an-grid > .an-card:nth-child(3) { animation-delay: .12s; }
+.an-grid > .an-card:nth-child(4) { animation-delay: .18s; }
+.an-grid > .an-card:nth-child(n+5) { animation-delay: .24s; }
+.an-contenido > .an-grid:nth-child(2) > .an-card { animation-delay: .22s; }
+.an-contenido > .an-grid:nth-child(n+3) > .an-card { animation-delay: .3s; }
+@media (hover: hover) {
+  .an-card:not(.an-sk):hover { transform: translateY(-3px); box-shadow: var(--shadow-2); border-color: var(--border-strong); }
+}
+.an-sk { animation: pulso-esqueleto 1.2s ease-in-out infinite; }
+@keyframes pulso-esqueleto { 50% { opacity: .55; } }
+
+/* Gráficas: las columnas crecen desde el eje, la línea se dibuja, las barras se llenan */
+.an-columna { transform-box: fill-box; transform-origin: 50% 100%; animation: crece-alto .6s var(--ease-salida) both; animation-delay: calc(var(--i, 0) * 14ms); transition: fill-opacity .15s, fill .15s; }
+.an-columna--activa { fill: var(--an-resalte); fill-opacity: 1; }
+.an-linea-grupo { animation: revela-linea 1s var(--ease-salida) .25s both; }
+.an-barra { animation: entra-opaco .4s ease both; animation-delay: calc(var(--i, 0) * 70ms); border-radius: var(--radius-sm); transition: background-color .15s; }
+.an-barra:hover { background: var(--surface-2); }
+.an-barra__relleno { transform-origin: left; animation: crece-ancho .8s var(--ease-salida) both; animation-delay: calc(var(--i, 0) * 70ms + .1s); transition: filter .15s; }
+.an-barra:hover .an-barra__relleno { filter: brightness(1.2); }
+.an-apilada__seg { transform-origin: left; animation: crece-ancho .8s var(--ease-salida) both; transition: opacity .15s, filter .15s; }
+.an-apilada__seg--tenue { opacity: .35; }
+.an-apilada__lista li { border-radius: var(--radius-sm); transition: background-color .15s; }
+.an-apilada__lista li.is-activa { background: var(--surface-2); }
+
+/* Tabla de zonas */
+.an-tabla--viva tbody tr { animation: entra-opaco .4s ease both; animation-delay: calc(var(--i, 0) * 45ms); transition: background-color .15s; }
+.an-tabla--viva tbody tr:hover { background: var(--surface-2); }
+.an-tabla--viva .an-barra__relleno { animation-delay: calc(var(--i, 0) * 45ms + .1s); }
+
+/* Login */
+.login__stage { animation: entra-pop .7s var(--ease-salida) both; }
+.login > :not(.login__stage) { animation: entra-arriba .6s var(--ease-salida) .2s both; }
+
+@media print {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

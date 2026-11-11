@@ -1,3 +1,4 @@
+import Contador from '../Contador';
 import { X } from 'lucide-react';
 import { ESTADOS, getTipo, tiempoRelativo } from './marcadores';
 
@@ -23,7 +24,7 @@ export default function PanelResumen({ mostrar, onAlternar, stats, porEstado, ul
             </div>
             <div className="panel__body">
                 <div>
-                    <div className="big-num num">{stats.total}<small>reportes con los filtros actuales</small></div>
+                    <div className="big-num num"><Contador texto={String(stats.total)} duracion={600} /><small>reportes con los filtros actuales</small></div>
                 </div>
 
                 <div>
