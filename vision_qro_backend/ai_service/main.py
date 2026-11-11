@@ -92,7 +92,7 @@ async def authenticate(data: LoginRequest, request: Request):
     cliente = _cliente(request)
     espera = _limite_login.segundos_de_espera(cliente, time.time())
     if espera:
-        raise HTTPException(status_code=429, detail=f"Demasiados intentos. Espera {max(1, espera // 60 + 1)} minuto(s).",
+        raise HTTPException(status_code=429, detail=f"Demasiados intentos. Espera {max(1, round(espera / 60))} minuto(s).",
                             headers={"Retry-After": str(espera)})
     if secrets.compare_digest(data.password.encode(), ADMIN_PASSWORD.encode()):
         _limite_login.registrar_exito(cliente)
