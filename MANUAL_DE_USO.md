@@ -1,87 +1,217 @@
 # Manual de Uso y Mantenimiento - Vision Qro
 
-Este manual contiene las instrucciones necesarias para operar, administrar y mantener el sistema de **Vision Qro** en la Jetson Orin Nano de forma inalámbrica y autónoma.
+Instrucciones para operar, administrar y mantener Vision Qro en la Jetson Orin Nano.
+Última revisión: 10 de noviembre de 2026.
 
-## 1. Direcciones de Acceso Local (Wi-Fi)
+> **Importante:** en este manual `<IP_JETSON>` es la IP local de la Jetson (ver sección 2). No guardes
+> contraseñas ni tokens en este archivo: el repositorio es público.
 
-Siempre que tu laptop y la Jetson estén conectadas a la misma red Wi-Fi:
+## 1. Direcciones de acceso
 
-*   **Mapa Interactivo (Frontend):** [http://192.168.1.73:5173/](http://192.168.1.73:5173/)
-*   **n8n (Orquestador / Backend):** [http://192.168.1.73:5678/](http://192.168.1.73:5678/)
-*   **API FastAPI (Documentación):** [http://192.168.1.73:8000/docs](http://192.168.1.73:8000/docs)
+### Desde internet (Cloudflare Tunnel)
 
----
+| Qué | URL |
+|---|---|
+| Mapa | `https://map.comcloudhosting.net/` |
+| API | `https://api.comcloudhosting.net/` |
+| Política de privacidad | `https://map.comcloudhosting.net/privacidad.html` |
+| Webhook de Telegram | `https://md.comcloudhosting.net/webhook/...` (solo esa ruta; el editor de n8n **no** es público) |
 
-## 2. Acceso Inalámbrico por SSH (Sin Cables)
+### Desde tu red local
 
-Para administrar la Jetson desde tu laptop sin necesidad de conectar el cable USB:
+| Qué | URL |
+|---|---|
+| Mapa | `http://<IP_JETSON>:5173/` |
+| API (documentación) | `http://<IP_JETSON>:8000/docs` |
+| Editor de n8n | `http://<IP_JETSON>:5679/` |
 
-1. Abre la terminal (o PowerShell en Windows) en tu laptop.
-2. Ejecuta el comando:
-   ```bash
-   ssh jetson@192.168.1.73
-   ```
-3. Introduce la contraseña del usuario `jetson`.
+El editor de n8n usa el puerto **5679** en la Jetson, porque el 5678 lo ocupa otro stack (`yolo_n8n`).
 
-> [!TIP]
-> **Cambio de IP:** Si la Jetson se reinicia, el módem podría asignarle otra IP (como `192.168.1.80`). Si esto ocurre:
-> 1. Puedes escanear la red con apps como **Fing** en tu celular para ver la nueva IP de la Jetson.
-> 2. O puedes configurar una **IP estática (DHCP Reservation)** en la página de configuración de tu módem/router para la dirección MAC de la Jetson, asegurando que siempre sea `192.168.1.73`.
-
----
-
-## 3. Comandos de Administración (Docker)
-
-El sistema corre en segundo plano y se inicia automáticamente si la Jetson se apaga y se vuelve a encender. Si necesitas administrarlo manualmente, primero conéctate por SSH y navega a la carpeta del proyecto:
+## 2. Acceso por SSH
 
 ```bash
-cd /home/jetson/Vision_Qro/vision_qro_backend
+ssh jetson@<IP_JETSON>
 ```
 
-### Comandos Útiles:
+- Por el cable USB, la Jetson suele responder en `192.168.55.1`.
+- Para ver su IP actual en la red: `hostname -I` (ejecutado en la Jetson).
+- Si la IP cambia tras un reinicio, reserva una IP fija (DHCP reservation) en tu router para la MAC de la Jetson.
 
-*   **Ver el estado de los contenedores:**
-    ```bash
-    docker compose ps
-    ```
-    *Deberías ver `vision_qro_db`, `vision_qro_n8n`, `vision_qro_tunnel`, `vision_qro_ai` y `vision_qro_frontend` en estado `Up`.*
+## 3. Dónde está el proyecto
 
-*   **Ver logs en tiempo real de la IA (YOLO):**
-    ```bash
-    docker compose logs -f ai_brain
-    ```
+El sistema en producción corre desde:
 
-*   **Ver logs de n8n:**
-    ```bash
-    docker compose logs -f n8n
-    ```
+```bash
+cd ~/Vision_Qro_bak/vision_qro_backend
+```
 
-*   **Apagar todo el sistema:**
-    ```bash
-    docker compose down
-    ```
+(El nombre `Vision_Qro_bak` es histórico; es la carpeta activa. El cron de respaldos apunta a esta ruta.)
 
-*   **Encender todo el sistema en segundo plano (detached mode):**
-    ```bash
-    docker compose up -d
-    ```
+| Ruta | Contenido |
+|---|---|
+| `vision_qro_backend/` | `docker-compose.yml`, `.env`, `init.sql`, `migrate.sql` y `ai_service/` (FastAPI + YOLO) |
+| `vision-qro-frontend/` | Mapa y panel de administración (React) |
+| `utils/` | Script de respaldo y herramientas |
+| `backups/` | Respaldos locales de la base de datos |
 
-*   **Reiniciar un contenedor específico (ejemplo: la IA):**
-    ```bash
-    docker compose restart ai_brain
-    ```
+## 4. Servicios (Docker)
 
----
+| Servicio | Contenedor | Puerto en la Jetson |
+|---|---|---|
+| `postgres` | `vision_qro_db` | interno |
+| `n8n` | `vision_qro_n8n` | 5679 |
+| `cloudflared` | `vision_qro_tunnel` | ninguno |
+| `ai_brain` | `vision_qro_ai` | 8000 |
+| `frontend` | `vision_qro_frontend` | 5173 |
 
-## 4. Estructura del Proyecto
+Los contenedores arrancan solos tras un reinicio (`restart: always`).
 
-*   `/home/jetson/Vision_Qro/vision_qro_backend`: Contiene la base de datos (Postgres/PostGIS), el orquestador n8n, el túnel de Cloudflare y el servicio de IA.
-*   `/home/jetson/Vision_Qro/vision-qro-frontend`: Contiene el mapa interactivo y dashboard web.
+```bash
+docker compose ps                    # estado de los contenedores
+docker compose logs -f ai_brain      # logs de la IA (Ctrl+C para salir)
+docker compose logs -f n8n           # logs de n8n
+docker compose restart ai_brain      # reiniciar un servicio
+```
 
----
+Para aplicar cambios del `.env` hay que **recrear** el contenedor (un `restart` no recarga el entorno):
 
-## 5. Recomendaciones de Hardware para Operación 24/7
+```bash
+docker compose up -d --no-deps --force-recreate ai_brain
+```
 
-1. **Alimentación Constante:** Mantén la Jetson conectada a la toma de corriente de pared con su eliminador oficial. No intentes alimentarla únicamente por USB si la GPU estará procesando imágenes.
-2. **Ventilación:** Mantén libre el disipador y ventilador de la placa para evitar sobrecalentamiento durante el procesamiento de imágenes con YOLO.
-3. **Respaldo de energía (Opcional):** Si en tu zona hay cortes de energía frecuentes, se recomienda usar un No-Break (UPS) para evitar que apagones repentinos puedan corromper la base de datos Postgres.
+> **No uses `docker compose down -v`.** La opción `-v` borra los volúmenes, es decir, la base de datos.
+> `docker compose down` sin `-v` apaga los servicios pero conserva los datos.
+
+La Jetson comparte Docker con otro proyecto (`yolo_n8n` y `yolo_postgres`). No los detengas ni los borres
+al limpiar Vision Qro.
+
+## 5. Credenciales
+
+Están en `~/Vision_Qro_bak/vision_qro_backend/.env` (permisos `600`). Las variables que importan:
+
+- `ADMIN_PASSWORD`: contraseña del panel de administración del mapa.
+- `API_KEY`: clave interna que la API devuelve al iniciar sesión como administrador.
+- `TELEGRAM_BOT_TOKEN`, `CLOUDFLARE_TUNNEL_TOKEN`, `POSTGRES_*`.
+
+Si faltan `ADMIN_PASSWORD` o `API_KEY`, las funciones de administración responden 503 (no hay valores por defecto).
+
+**Cambiar la contraseña de administrador** (te la pide sin mostrarla; evita `$` y `#`):
+
+```bash
+python3 -c 'import getpass,re,os;p=getpass.getpass("Nueva contraseña de admin: ");f=os.path.expanduser("~/Vision_Qro_bak/vision_qro_backend/.env");s=open(f).read();s=re.sub(r"(?m)^ADMIN_PASSWORD=.*$",lambda m:"ADMIN_PASSWORD="+p,s);open(f,"w").write(s)'
+```
+
+**Generar una API_KEY nueva** (no se imprime):
+
+```bash
+sed -i "s|^API_KEY=.*|API_KEY=$(openssl rand -hex 32)|" .env
+```
+
+Después de cualquiera de los dos, recrea `ai_brain` (sección 4).
+
+## 6. Respaldos
+
+Cada día a las **03:00** el cron ejecuta `utils/backup_db.sh`:
+
+- Genera un volcado comprimido de la base (incluye también el estado de n8n) en `backups/`.
+- Lo sube **cifrado** a Google Drive con `rclone` (remoto `gdrive-crypt:db`).
+- Conserva 14 días, local y en Drive.
+- El registro queda en `backups/backup.log`.
+
+**Hacer un respaldo ahora:**
+
+```bash
+RCLONE_REMOTE=gdrive-crypt:db PATH=$HOME/.local/bin:$PATH ../utils/backup_db.sh
+```
+
+**Descargar un respaldo desde Drive:**
+
+```bash
+~/.local/bin/rclone lsl gdrive-crypt:db
+~/.local/bin/rclone copyto gdrive-crypt:db/ARCHIVO.sql.gz ./ARCHIVO.sql.gz
+```
+
+**Restaurar** (esto **reemplaza** la base actual; solo si de verdad la necesitas):
+
+```bash
+P='PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER'
+docker exec vision_qro_db sh -c "$P -d postgres -c 'DROP DATABASE IF EXISTS \"'\$POSTGRES_DB'\" WITH (FORCE)' -c 'CREATE DATABASE \"'\$POSTGRES_DB'\"'"
+zcat ARCHIVO.sql.gz | docker exec -i vision_qro_db sh -c "$P -d \$POSTGRES_DB -q"
+docker exec -i vision_qro_db sh -c "$P -d \$POSTGRES_DB -q" < migrate.sql
+```
+
+Espera a que Postgres acepte conexiones antes de restaurar. Puede mostrar dos errores de políticas de
+`pg_cron`; son inofensivos.
+
+**Requisitos para que la subida a Drive siga funcionando**
+
+- La app de Google Cloud debe estar en estado **In production** (en *Testing* el permiso caduca a los 7 días).
+- Guarda en tu gestor de contraseñas las dos claves del cifrado (`rclone config show gdrive-crypt`).
+  Sin ellas, los respaldos en Drive no se pueden descifrar si la Jetson se daña.
+
+## 7. Actualizar el workflow de n8n
+
+El workflow vive en `n8n_Telegram.json` (raíz del repositorio). Importarlo con la CLI de n8n, que no necesita API key:
+
+1. Respalda el actual:
+   ```bash
+   docker exec vision_qro_n8n n8n export:workflow --id=oG1jgSR0nhEvfE9l --output=/home/node/.n8n/backup_workflow.json
+   ```
+2. Copia e importa el archivo nuevo, y actívalo:
+   ```bash
+   docker cp workflow.json vision_qro_n8n:/tmp/workflow.json
+   docker exec vision_qro_n8n n8n import:workflow --input=/tmp/workflow.json
+   docker exec vision_qro_n8n n8n update:workflow --id=oG1jgSR0nhEvfE9l --active=true
+   docker restart vision_qro_n8n
+   ```
+3. Antes de importar, el archivo debe usar el **ID del workflow** y los **IDs de credenciales** de la instancia de n8n
+   de la Jetson. El `n8n_Telegram.json` del repositorio trae IDs de otra instalación, así que hay que reemplazarlos
+   en una copia (no son secretos):
+
+   | Qué | ID en el repositorio | ID en la Jetson |
+   |---|---|---|
+   | Workflow `Telegram_n8n` | `oPyUlGi7WOAKaQA3` | `oG1jgSR0nhEvfE9l` |
+   | Credencial `Telegram account` | `XaFnB0RjU5Z7dSO9` | `1L9EcHJ5wXGTjVPd` |
+   | Credencial `Postgres account` | `326GbKP8LulCptUD` | `ZBoM0evuZghn6lKP` |
+
+   Si no los cambias, el import crea un workflow nuevo o deja los nodos sin credencial.
+
+## 8. Problemas frecuentes
+
+**El bot no responde**
+1. `docker compose logs --since 10m n8n` y revisa si hay ejecuciones nuevas.
+2. Pregunta a Telegram qué ve. Desde la Jetson, sin imprimir el token:
+   ```bash
+   docker exec vision_qro_ai sh -c 'curl -s https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo'
+   ```
+   Si `last_error_message` dice `403 Forbidden` y n8n responde `"Provided secret is not valid"`, Telegram conserva un
+   secreto viejo del webhook. Bórralo y reinicia n8n para que lo registre de nuevo:
+   ```bash
+   docker exec vision_qro_ai sh -c 'curl -s https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/deleteWebhook'
+   docker restart vision_qro_n8n
+   ```
+   (`deleteWebhook` sin `drop_pending_updates` conserva los mensajes pendientes.)
+
+**El bot avisa "no pude analizar la imagen"**
+`ai_brain` no respondió. El reporte queda guardado como `pendiente_manual` y aparece en el mapa como pendiente.
+Revisa `docker compose ps` y `docker compose logs ai_brain`.
+
+**El mapa carga pero sin puntos**
+Comprueba `https://api.comcloudhosting.net/api/v1/reportes-mapa`. Si responde 200 con `[]`, la base está vacía o se restauró mal.
+Si no responde, revisa `vision_qro_ai` y el túnel (`docker compose logs cloudflared`).
+
+**La Jetson se queda sin disco**
+Ve el uso con `df -h /` y `docker system df`. Limpieza segura (solo imágenes sin etiqueta y caché de build):
+
+```bash
+docker image prune -f
+docker builder prune -f
+```
+
+No uses `docker system prune -a` ni borres volúmenes: podrías eliminar imágenes de otros proyectos o la base de datos.
+
+## 9. Recomendaciones de hardware para operación 24/7
+
+1. **Alimentación constante:** conecta la Jetson a la pared con su eliminador oficial. No la alimentes solo por USB si la GPU procesa imágenes.
+2. **Ventilación:** mantén libre el disipador y el ventilador para evitar sobrecalentamiento durante la inferencia con YOLO.
+3. **Respaldo de energía (opcional):** un No-Break (UPS) evita que un apagón repentino corrompa la base de datos.
