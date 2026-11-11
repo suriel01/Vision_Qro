@@ -109,8 +109,8 @@ services:
       # los endpoints protegidos responden 503.
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - API_KEY=${API_KEY}
-      # Las fotos de los reportes solo las ve el administrador, salvo que se ponga FOTOS_PUBLICAS=true
-      - FOTOS_PUBLICAS=${FOTOS_PUBLICAS:-false}
+      # Las fotos de los reportes las ve cualquiera (solo lectura). Para dejarlas solo al administrador: FOTOS_PUBLICAS=false
+      - FOTOS_PUBLICAS=${FOTOS_PUBLICAS:-true}
     volumes:
       - n8n_data:/n8n_data
       # Volumen persistente: el modelo YOLO se descarga UNA sola vez

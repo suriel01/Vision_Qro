@@ -155,8 +155,8 @@ _CAT_LABEL = {
 
 
 # Las fotos de los reportes pueden contener datos de terceros: por defecto solo las ve el administrador.
-# Para mostrarlas a todos, FOTOS_PUBLICAS=true en el .env (y recrear ai_brain).
-FOTOS_PUBLICAS = os.getenv("FOTOS_PUBLICAS", "false").strip().lower() in ("1", "true", "si", "sí", "yes")
+# Para dejarlas solo al administrador, FOTOS_PUBLICAS=false en el .env (y recrear ai_brain).
+FOTOS_PUBLICAS = os.getenv("FOTOS_PUBLICAS", "true").strip().lower() in ("1", "true", "si", "sí", "yes")
 
 
 def _es_admin(api_key: str | None) -> bool:

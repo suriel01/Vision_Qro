@@ -309,11 +309,10 @@ python3 utils/build_workflow_selector.py                      # regenera los nod
 
 ## 12. Privacidad del mapa y estados de reporte
 
-- **Invitados** ven en el mapa: ubicación, tipo, tamaño del bache, fecha y estado. (El mapa dibuja cada punto con un pequeño desplazamiento visual, pero la API entrega las coordenadas exactas.) No ven el ID,
-  la confianza de la IA, el objeto detectado, las coordenadas exactas ni la foto. La API tampoco se los entrega (`/api/v1/reportes-mapa` sin clave).
-- **Administrador** (con `X-API-Key`) ve además los datos técnicos y las fotos (`/api/v1/foto/{id}` exige la clave).
-- **Fotos públicas.** Por defecto no lo son. Para hacerlas públicas pon `FOTOS_PUBLICAS=true` en el `.env` y recrea `ai_brain`.
-  Si lo haces, actualiza antes la política de privacidad (`vision-qro-frontend/public/privacidad.html`).
+- **Invitados** ven en el mapa (solo lectura): ubicación, tipo, tamaño del bache, fecha, estado, ID, objeto detectado, confianza de la IA y la foto. No pueden cambiar estados ni eliminar. Nunca se entrega el usuario de Telegram.
+- **Administrador** (con `X-API-Key`) puede además cambiar el estado, eliminar y exportar/importar respaldos.
+- **Fotos públicas.** Por defecto lo son. Para dejarlas solo al administrador pon `FOTOS_PUBLICAS=false` en el `.env` y recrea `ai_brain`
+  (`/api/v1/foto/{id}` pasará a exigir la clave). Mantén alineada la política de privacidad (`vision-qro-frontend/public/privacidad.html`).
 - **Estados:** `nuevo`, `en_proceso`, `resuelto` (columna `estado_gestion`, distinta del `estado` interno del bot). Se cambian desde el popup
   del reporte como administrador. Al pasar a *en proceso* o *resuelto* el ciudadano recibe un mensaje por Telegram; reabrir (*nuevo*) no avisa.
   El panel tiene un filtro por estado y los marcadores se atenúan o cambian de borde según el estado.

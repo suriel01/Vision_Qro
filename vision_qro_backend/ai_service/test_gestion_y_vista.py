@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gestion import debe_notificar, es_estado_valido, mensaje_cambio  # noqa: E402
-from vista_publica import CAMPOS_ADMIN_EXTRA, CAMPOS_PUBLICOS, reporte_para_mapa  # noqa: E402
+from vista_publica import CAMPOS_PUBLICOS, reporte_para_mapa  # noqa: E402
 
 fallos = 0
 total = 0
@@ -59,10 +59,11 @@ def mensaje_no_se_deja_inyectar_el_id():
         pass
 
 
-def invitado_no_ve_datos_tecnicos():
+def invitado_ve_el_analisis_pero_no_datos_personales():
     r = reporte_para_mapa(FILA, es_admin=False, fotos_publicas=False)
     assert set(r) == set(CAMPOS_PUBLICOS), set(r) ^ set(CAMPOS_PUBLICOS)
-    for k in ("confianza", "objeto_detectado", "telegram_username", "chat_id", "foto_url", "foto_id"):
+    assert r["confianza"] == 87.2 and r["objeto_detectado"] == "bottle"
+    for k in ("telegram_username", "telegram_user_id", "chat_id", "foto_url", "foto_id"):
         assert k not in r, k
 
 
@@ -74,10 +75,10 @@ def invitado_con_fotos_publicas_ve_foto():
     assert reporte_para_mapa(FILA, False, True)["tiene_foto"] is True
 
 
-def admin_ve_foto_y_datos_tecnicos():
+def admin_ve_foto_aunque_no_sean_publicas():
     r = reporte_para_mapa(FILA, True, False)
     assert r["tiene_foto"] is True and r["confianza"] == 87.2 and r["objeto_detectado"] == "bottle"
-    assert set(r) == set(CAMPOS_PUBLICOS) | set(CAMPOS_ADMIN_EXTRA)
+    assert set(r) == set(CAMPOS_PUBLICOS)
     assert "telegram_username" not in r and "chat_id" not in r
 
 
