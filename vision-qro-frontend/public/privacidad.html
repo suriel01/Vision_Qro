@@ -36,7 +36,8 @@
   <h2>1. Qué datos se guardan</h2>
   <ul>
     <li><strong>Datos del reporte:</strong> la foto que envías, la ubicación que compartes (latitud y longitud),
-        la fecha y la clasificación del objeto (automática o corregida por una persona).</li>
+        la fecha y la clasificación del objeto (automática o corregida por una persona). Guardamos además
+        <strong>una copia de la foto en nuestro servidor</strong> y el resultado del análisis automático.</li>
     <li><strong>Datos de Telegram:</strong> el identificador de tu chat con el bot y tu nombre de usuario (o tu nombre, si no
         tienes usuario) tal como Telegram lo entrega al bot.</li>
   </ul>
@@ -47,6 +48,9 @@
     <li>Registrar tu reporte y mostrarlo en el mapa.</li>
     <li>Clasificar automáticamente la foto con un modelo de visión por computadora (YOLO) que corre en nuestro propio servidor.</li>
     <li>Responderte en el chat del bot (confirmaciones, avisos de error).</li>
+    <li>Mejorar el modelo de clasificación: las fotos de reportes que una persona ya revisó pueden usarse para
+        entrenarlo y evaluarlo. Ese entrenamiento se hace en equipos del responsable; las fotos no se publican
+        ni se entregan a terceros para ese fin.</li>
   </ul>
   <p>No vendemos ni compartimos tus datos con fines publicitarios.</p>
 
@@ -59,8 +63,8 @@
 
   <h2>3. Dónde se guardan y quién interviene</h2>
   <ul>
-    <li><strong>Servidor propio:</strong> los reportes se guardan en una base de datos en un servidor controlado por el responsable.</li>
-    <li><strong>Telegram:</strong> la foto original permanece en los servidores de Telegram y se consulta desde allí para mostrarla.</li>
+    <li><strong>Servidor propio:</strong> los reportes se guardan en una base de datos, y una copia de cada foto en el almacenamiento de un servidor controlado por el responsable.</li>
+    <li><strong>Telegram:</strong> la foto original permanece también en los servidores de Telegram y se consulta desde allí para mostrarla.</li>
     <li><strong>Cloudflare:</strong> gestiona la conexión segura (túnel y DNS) entre internet y nuestro servidor.</li>
     <li><strong>Mapbox:</strong> proporciona el mapa base que se muestra en el navegador.</li>
     <li><strong>Google Drive:</strong> se guardan copias de seguridad cifradas de la base de datos (ver sección 4).</li>
@@ -69,7 +73,7 @@
   <h2>4. Copias de seguridad en Google Drive</h2>
   <p>
     Una herramienta del responsable (“Vision Qro Backup”) sube cada día un respaldo <strong>cifrado</strong> de la base
-    de datos a la cuenta de Google Drive del responsable, para poder recuperar el servicio ante una falla. Usa únicamente el
+    de datos (no incluye las copias de las fotos) a la cuenta de Google Drive del responsable, para poder recuperar el servicio ante una falla. Usa únicamente el
     permiso de Google Drive <code>drive.file</code>, que solo da acceso a los archivos que esa misma herramienta crea.
     No lee, modifica ni comparte ningún otro archivo de Drive. Se conservan los respaldos de los últimos 14 días.
   </p>
@@ -81,7 +85,8 @@
 
   <h2>5. Cuánto tiempo se conservan</h2>
   <p>
-    Los reportes se conservan mientras el servicio esté en operación o hasta que se eliminen. Los respaldos se borran
+    Los reportes y la copia de su foto se conservan mientras el servicio esté en operación o hasta que se eliminen.
+    Al eliminar un reporte se borra también la copia de su foto en nuestro servidor. Los respaldos de la base de datos se borran
     automáticamente a los 14 días.
   </p>
 
@@ -90,7 +95,7 @@
     Puedes pedir acceso, corrección o eliminación de tus reportes y de los datos asociados a tu cuenta de Telegram escribiendo a
     <strong>suriel.allo@gmail.com</strong>, indicando tu nombre de usuario de Telegram y, si puedes, el reporte en cuestión.
     También puedes cancelar un reporte en curso con el botón “Cancelar reporte” del bot. Los reportes eliminados
-    desaparecen del mapa; pueden permanecer hasta 14 días en los respaldos cifrados.
+    desaparecen del mapa y se borra la copia de su foto; sus datos pueden permanecer hasta 14 días en los respaldos cifrados de la base de datos.
   </p>
 
   <h2>7. Seguridad</h2>
@@ -106,10 +111,10 @@
   <h2>English summary</h2>
   <p>
     Vision Qro lets residents report litter and potholes in Querétaro through a Telegram bot, with a public map. We store the
-    photo and location you send, the report date and classification, and your Telegram chat identifier and username (or first name).
+    photo and location you send (including a copy of the photo on our own server), the report date and classification, and your Telegram chat identifier and username (or first name).
     The public map shows location, report type, date and photo, but not your Telegram username. Data is stored on a
     server operated by the data controller; encrypted daily backups are uploaded to the controller's own Google Drive using
-    only the <code>drive.file</code> scope, and kept for 14 days. Use of information received from Google APIs complies with the
+    only the <code>drive.file</code> scope, and kept for 14 days; backups do not include photo copies. Photos of reports already reviewed by a person may be used to train and evaluate the classification model, on the controller's own equipment, and are deleted with the report. Use of information received from Google APIs complies with the
     <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
     including the Limited Use requirements. To request access or deletion, contact <strong>suriel.allo@gmail.com</strong>.
   </p>
