@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { ESTADOS, FILTROS, MAP_THEMES } from './marcadores';
+import { CAPAS } from './capasMapa';
 
 const Segmento = ({ opciones, valor, onElegir, etiqueta }) => (
     <div className="seg" role="group" aria-label={etiqueta}>
@@ -11,7 +12,7 @@ const Segmento = ({ opciones, valor, onElegir, etiqueta }) => (
 
 /** Panel derecho: mapa base, vista (puntos o calor), estado y categorías. */
 export default function PanelFiltros({
-    mostrar, onAlternar, mapTheme, onTheme, showHeatmap, onHeatmap,
+    mostrar, onAlternar, mapTheme, onTheme, capas, onCapa, showHeatmap, onHeatmap,
     estadoFiltro, onEstado, activeFilters, onToggle, onToggleAll,
 }) {
     if (!mostrar) {
@@ -28,6 +29,17 @@ export default function PanelFiltros({
                 <div>
                     <h3 className="sect-title">Mapa base</h3>
                     <Segmento etiqueta="Mapa base" opciones={Object.values(MAP_THEMES)} valor={mapTheme} onElegir={onTheme} />
+                </div>
+                <div>
+                    <h3 className="sect-title">Detalles del mapa</h3>
+                    <div className="checks">
+                        {CAPAS.map((c) => (
+                            <label className="check" key={c.id}>
+                                <input type="checkbox" checked={capas[c.id] !== false} onChange={() => onCapa(c.id)} />
+                                <span>{c.label}</span>
+                            </label>
+                        ))}
+                    </div>
                 </div>
                 <div>
                     <h3 className="sect-title">Vista</h3>

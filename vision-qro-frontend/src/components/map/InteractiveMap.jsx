@@ -6,6 +6,7 @@ import { API_BASE_URL, MAPBOX_TOKEN } from '../../config';
 import LoginScreen from '../auth/LoginScreen';
 import TopBar from './TopBar';
 import Ajustes from './Ajustes';
+import { aplicarCapas, CAPAS_PREDETERMINADAS } from './capasMapa';
 import { useAjustes, mapaEfectivo, temaEfectivo } from '../../ajustes';
 import PanelResumen from './PanelResumen';
 import PanelFiltros from './PanelFiltros';
@@ -61,6 +62,7 @@ export default function InteractiveMap() {
     const mapTheme = mapaEfectivo(ajustes);
     const [viewState, setViewState] = useState({ longitude: -100.3899, latitude: 20.5888, zoom: 12, pitch: 0, bearing: 0 });
     const primeraCarga = useRef(true);
+    const mapaRef = useRef(null);
 
     useEffect(() => {
         const alCambiar = () => setIsMobile(window.innerWidth <= 768);
@@ -222,11 +224,17 @@ export default function InteractiveMap() {
         features: reportesFiltrados.map((r) => ({ type: 'Feature', properties: { tipo: r.tipo }, geometry: { type: 'Point', coordinates: [r.lng, r.lat] } })),
     }), [reportesFiltrados]);
 
+    const alternarCapa = (id) => {
+        const capas = { ...ajustes.capas, [id]: ajustes.capas[id] === false };
+        cambiarAjustes({ capas });
+        aplicarCapas(mapaRef.current?.getMap(), capas);
+    };
+
     const cambiarMapa = (id) => {
         cambiarAjustes({ mapa: id });
         const nuevo = id === 'auto' ? (temaEfectivo(ajustes) === 'oscuro' ? 'noche' : 'calles') : id;
         if (nuevo === mapTheme) return;
-        setViewState((prev) => (nuevo === 'satelite' ? { ...prev, pitch: isMobile ? 0 : 55, bearing: isMobile ? 0 : -10, zoom: 15 } : { ...prev, pitch: 0, bearing: 0 }));
+        setViewState((prev) => ({ ...prev, pitch: 0, bearing: 0 }));
     };
 
     const seleccionarReporte = useCallback((r) => {
@@ -263,7 +271,10 @@ export default function InteractiveMap() {
             <div className="app__body">
                 <section className="view" hidden={vista !== 'mapa'} aria-label="Mapa de reportes">
                     <Map
+                        ref={mapaRef}
                         {...viewState}
+                        onLoad={() => aplicarCapas(mapaRef.current?.getMap(), ajustes.capas)}
+                        onStyleData={() => aplicarCapas(mapaRef.current?.getMap(), ajustes.capas)}
                         onMove={(e) => setViewState(e.viewState)}
                         onClick={() => { if (isMobile) setPanelMovil(null); }}
                         style={{ width: '100%', height: '100%' }}
@@ -271,14 +282,9 @@ export default function InteractiveMap() {
                         mapboxAccessToken={MAPBOX_TOKEN}
                         minZoom={9}
                         maxZoom={20}
-                        terrain={mapTheme === 'satelite' ? { source: 'mapbox-dem', exaggeration: 1.5 } : undefined}
                     >
                         <GeolocateControl position="bottom-right" trackUserLocation showUserHeading />
                         <NavigationControl position="bottom-right" showCompass showZoom />
-
-                        {mapTheme === 'satelite' && (
-                            <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" tileSize={512} maxzoom={14} />
-                        )}
 
                         {showHeatmap && (
                             <Source id="heatmap-source" type="geojson" data={heatmapGeoJSON}>
@@ -319,7 +325,7 @@ export default function InteractiveMap() {
                     />
                     <PanelFiltros
                         mostrar={mostrarDer} onAlternar={() => (isMobile ? setPanelMovil(null) : setPanelDer((v) => !v))}
-                        mapTheme={mapTheme} onTheme={cambiarMapa} showHeatmap={showHeatmap}
+                        mapTheme={mapTheme} onTheme={cambiarMapa} capas={ajustes.capas} onCapa={alternarCapa} showHeatmap={showHeatmap}
                         onHeatmap={(v) => { setShowHeatmap(v); if (v) setPopupInfo(null); }}
                         estadoFiltro={estadoFiltro} onEstado={setEstadoFiltro}
                         activeFilters={activeFilters} onToggle={toggleFilter} onToggleAll={toggleAllFilters}
@@ -346,7 +352,7 @@ export default function InteractiveMap() {
 
             {showAjustes && (
                 <Ajustes
-                    ajustes={ajustes} onCambiar={cambiarAjustes} onMapa={cambiarMapa} onRestablecer={restablecer}
+                    ajustes={ajustes} onCambiar={cambiarAjustes} onMapa={cambiarMapa} onRestablecer={() => { restablecer(); aplicarCapas(mapaRef.current?.getMap(), CAPAS_PREDETERMINADAS); }}
                     onSalir={() => { setShowAjustes(false); salir(); }} onCerrar={() => setShowAjustes(false)}
                 />
             )}

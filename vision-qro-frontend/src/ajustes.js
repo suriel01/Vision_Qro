@@ -1,12 +1,14 @@
 // Preferencias del usuario (tema, mapa base, vista, animaciones, vibración). Se guardan en este navegador.
 import { useCallback, useEffect, useState } from 'react';
+import { CAPAS_PREDETERMINADAS } from './components/map/capasMapa';
 
 const CLAVE = 'visionqro.ajustes';
-export const PREDETERMINADOS = { tema: 'auto', mapa: 'auto', vista: 'puntos', animaciones: 'normal', vibracion: true };
+export const PREDETERMINADOS = { tema: 'auto', mapa: 'auto', vista: 'puntos', animaciones: 'normal', vibracion: true, capas: { ...CAPAS_PREDETERMINADAS } };
 
 function leer() {
     try {
-        return { ...PREDETERMINADOS, ...JSON.parse(localStorage.getItem(CLAVE) || '{}') };
+        const g = JSON.parse(localStorage.getItem(CLAVE) || '{}');
+        return { ...PREDETERMINADOS, ...g, capas: { ...CAPAS_PREDETERMINADAS, ...(g.capas || {}) } };
     } catch {
         return { ...PREDETERMINADOS };
     }
@@ -44,7 +46,7 @@ export function useAjustes() {
 
     const restablecer = useCallback(() => {
         try { localStorage.removeItem(CLAVE); } catch { /* idem */ }
-        setAjustes({ ...PREDETERMINADOS });
+        setAjustes({ ...PREDETERMINADOS, capas: { ...CAPAS_PREDETERMINADAS } });
     }, []);
 
     useEffect(() => {
