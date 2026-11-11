@@ -27,6 +27,8 @@ Instrucciones para operar, administrar y mantener Vision Qro en la Jetson Orin N
 
 El editor de n8n usa el puerto **5679** en la Jetson, porque el 5678 lo ocupa otro stack (`yolo_n8n`).
 
+`/predict` (análisis de imágenes) solo responde a llamadas internas de n8n; desde internet devuelve 403.
+
 ## 2. Acceso por SSH
 
 ```bash
@@ -210,7 +212,33 @@ docker builder prune -f
 
 No uses `docker system prune -a` ni borres volúmenes: podrías eliminar imágenes de otros proyectos o la base de datos.
 
-## 9. Recomendaciones de hardware para operación 24/7
+## 9. Muestras para mejorar el modelo
+
+Cada foto que n8n envía a `/predict` se guarda con lo que predijo el modelo:
+
+- Archivo: `uploads_data` → `/app/uploads/entrenamiento/<reporte>_<fecha>.jpg` (dentro del contenedor `vision_qro_ai`).
+- Fila en la tabla `predicciones` (modelo, clase, confianza, categoría y ruta del archivo).
+- La vista `v_muestras_entrenamiento` une cada foto con su etiqueta final, **solo** de reportes que una persona
+  ya validó o corrigió.
+
+```bash
+# cuántas muestras hay y cuántas ya tienen etiqueta humana
+docker exec -i vision_qro_db sh -c 'PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB' \
+  <<< "select (select count(*) from predicciones) as muestras, (select count(*) from v_muestras_entrenamiento) as etiquetadas;"
+
+# espacio que ocupan
+docker exec vision_qro_ai du -sh /app/uploads/entrenamiento
+
+# copiar las fotos a la Jetson para llevarlas a entrenar
+docker cp vision_qro_ai:/app/uploads/entrenamiento ./entrenamiento
+```
+
+- Al eliminar un reporte desde el panel (o "borrar todos"), se borran también su fila y su foto.
+- Los respaldos de la base **no** incluyen estas fotos; solo viven en el volumen `uploads_data`.
+- La política de privacidad ya explica este uso. Si cambias cómo se guardan o se usan las fotos, actualiza
+  `vision-qro-frontend/public/privacidad.html`.
+
+## 10. Recomendaciones de hardware para operación 24/7
 
 1. **Alimentación constante:** conecta la Jetson a la pared con su eliminador oficial. No la alimentes solo por USB si la GPU procesa imágenes.
 2. **Ventilación:** mantén libre el disipador y el ventilador para evitar sobrecalentamiento durante la inferencia con YOLO.
