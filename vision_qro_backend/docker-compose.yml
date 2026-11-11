@@ -68,6 +68,8 @@ services:
       - YOLO_MODEL_PATH=models/yolo12n.pt
       # Token del bot de Telegram (para construir URLs de fotos)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      # Clave requerida para DELETE /api/v1/reportes/{id}
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
     volumes:
       - n8n_data:/n8n_data
       # Volumen persistente: el modelo YOLO se descarga UNA sola vez

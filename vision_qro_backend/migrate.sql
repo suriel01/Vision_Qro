@@ -20,6 +20,15 @@ ALTER TABLE reportes ADD COLUMN IF NOT EXISTS descripcion TEXT;
 ALTER TABLE reportes ADD COLUMN IF NOT EXISTS telegram_user_id BIGINT;
 ALTER TABLE reportes ADD COLUMN IF NOT EXISTS telegram_username VARCHAR(100);
 
+-- Columnas usadas por el workflow de n8n (máquina de estados por chat)
+ALTER TABLE reportes ADD COLUMN IF NOT EXISTS chat_id BIGINT;
+ALTER TABLE reportes ADD COLUMN IF NOT EXISTS foto_id TEXT;
+ALTER TABLE reportes ADD COLUMN IF NOT EXISTS estado VARCHAR(50);
+
+-- El reporte nace con la foto; la ubicación llega después
+ALTER TABLE reportes ALTER COLUMN latitud DROP NOT NULL;
+ALTER TABLE reportes ALTER COLUMN longitud DROP NOT NULL;
+
 -- Índice por fecha (si no existe)
 CREATE INDEX IF NOT EXISTS idx_reportes_fecha ON reportes (created_at DESC);
 

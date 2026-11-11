@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, File, UploadFile, HTTPException
+import secrets
+from fastapi import FastAPI, File, UploadFile, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from ultralytics import YOLO
@@ -48,6 +49,7 @@ model = YOLO(_model_path)
 
 # --- 5. TELEGRAM ---
 _tg_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+_admin_key = os.getenv("ADMIN_API_KEY", "")
 
 def _build_foto_url(file_path: str | None) -> str | None:
     """
@@ -102,8 +104,7 @@ async def obtener_reportes_mapa():
                 clase_corregida, subclase,
                 created_at,
                 foto_url,
-                confianza,
-                telegram_username
+                confianza
             FROM reportes
             WHERE latitud IS NOT NULL AND longitud IS NOT NULL
             ORDER BY created_at ASC
@@ -120,14 +121,14 @@ async def obtener_reportes_mapa():
                 "objeto_detectado": f["clase_corregida"] or "Desconocido",
                 "created_at": f["created_at"].isoformat() if f["created_at"] else None,
                 "confianza":  float(f["confianza"]) if f["confianza"] else None,
-                "telegram_username": f["telegram_username"] if "telegram_username" in f else None,
+                # No enviamos telegram_username: dato personal, no debe ser público.
                 # No enviamos foto_url al frontend; se usa el proxy /api/v1/foto/{id}
                 "tiene_foto": bool(f["foto_url"]),
             })
     except Exception as e:
         print(f"⚠️  Consulta completa falló ({e}). Usando consulta básica.")
         query = """
-            SELECT id, latitud, longitud, clase_corregida, subclase, telegram_username
+            SELECT id, latitud, longitud, clase_corregida, subclase
             FROM reportes
             WHERE latitud IS NOT NULL AND longitud IS NOT NULL
         """
@@ -143,7 +144,6 @@ async def obtener_reportes_mapa():
                 "objeto_detectado": f["clase_corregida"] or "Desconocido",
                 "created_at": None,
                 "confianza":  None,
-                "telegram_username": f["telegram_username"] if "telegram_username" in f else None,
                 "tiene_foto": False,
             })
 
@@ -243,7 +243,12 @@ async def predict(file: UploadFile = File(...)):
 
 
 @app.delete("/api/v1/reportes/{reporte_id}")
-async def eliminar_reporte(reporte_id: int):
+async def eliminar_reporte(reporte_id: int, x_api_key: str | None = Header(default=None)):
+    # Falla cerrado: sin ADMIN_API_KEY configurada nadie puede borrar.
+    if not _admin_key:
+        raise HTTPException(status_code=503, detail="ADMIN_API_KEY no configurada")
+    if not x_api_key or not secrets.compare_digest(x_api_key, _admin_key):
+        raise HTTPException(status_code=401, detail="No autorizado")
     try:
         query = "DELETE FROM reportes WHERE id = :id"
         await database.execute(query=query, values={"id": reporte_id})

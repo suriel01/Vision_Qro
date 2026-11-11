@@ -162,8 +162,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "DELETE FROM reportes WHERE chat_id = {{ $json.message.chat.id }} AND estado = 'esperando_ubicacion';\nINSERT INTO reportes (chat_id, foto_id, estado, telegram_username)\nVALUES (\n  {{ $json.message.chat.id }},\n  '{{ $json.message.photo[$json.message.photo.length - 1].file_id }}',\n  'esperando_ubicacion',\n  '{{ $json.message.from.username || $json.message.from.first_name }}'\n);",
-        "options": {}
+        "query": "DELETE FROM reportes WHERE chat_id = $1 AND estado = 'esperando_ubicacion';\nINSERT INTO reportes (chat_id, foto_id, estado, telegram_username)\nVALUES ($1, $2, 'esperando_ubicacion', $3);",
+        "options": {
+          "queryReplacement": "={{ [$json.message.chat.id, $json.message.photo[$json.message.photo.length - 1].file_id, $json.message.from.username || $json.message.from.first_name] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -183,8 +185,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes \nSET latitud = {{ $json.message.location.latitude }},\n    longitud = {{ $json.message.location.longitude }},\n    estado = 'completado'\nWHERE chat_id = {{ $json.message.chat.id }} \n  AND estado = 'esperando_ubicacion'\nRETURNING *;",
-        "options": {}
+        "query": "UPDATE reportes\nSET latitud = $1,\n    longitud = $2,\n    estado = 'completado'\nWHERE chat_id = $3\n  AND estado = 'esperando_ubicacion'\nRETURNING *;",
+        "options": {
+          "queryReplacement": "={{ [$json.message.location.latitude, $json.message.location.longitude, $json.message.chat.id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -400,8 +404,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "DELETE FROM reportes \nWHERE chat_id = {{ $json.message.chat.id }} \n  AND estado != 'completado';",
-        "options": {}
+        "query": "DELETE FROM reportes\nWHERE chat_id = $1\n  AND estado != 'completado';",
+        "options": {
+          "queryReplacement": "={{ [$json.message.chat.id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -713,8 +719,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes \nSET estado = 'validado' \nWHERE chat_id = {{ $json.callback_query.message.chat.id }} \nAND estado = 'completado';",
-        "options": {}
+        "query": "UPDATE reportes\nSET estado = 'validado'\nWHERE chat_id = $1\nAND estado = 'completado';",
+        "options": {
+          "queryReplacement": "={{ [$json.callback_query.message.chat.id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -758,8 +766,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes \nSET estado = 'esperando_nombre' \nWHERE chat_id = {{ $json.callback_query.message.chat.id }} \nAND estado = 'completado';",
-        "options": {}
+        "query": "UPDATE reportes\nSET estado = 'esperando_nombre'\nWHERE chat_id = $1\nAND estado = 'completado';",
+        "options": {
+          "queryReplacement": "={{ [$json.callback_query.message.chat.id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -968,8 +978,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes \nSET subclase = '{{ $json.callback_query.data.split(\"_\")[1] }}', \n    estado = 'corregido_por_humano',\n    confianza = NULL,\n    telegram_username = '{{ $json.callback_query.from.username || $json.callback_query.from.first_name }}'\nWHERE chat_id = {{ $json.callback_query.message.chat.id }} \nAND (estado = 'pendiente_correccion' OR estado = 'en_subclasificacion');",
-        "options": {}
+        "query": "UPDATE reportes\nSET subclase = $1,\n    estado = 'corregido_por_humano',\n    confianza = NULL,\n    telegram_username = $2\nWHERE chat_id = $3\nAND (estado = 'pendiente_correccion' OR estado = 'en_subclasificacion');",
+        "options": {
+          "queryReplacement": "={{ [$json.callback_query.data.split(\"_\")[1], $json.callback_query.from.username || $json.callback_query.from.first_name, $json.callback_query.message.chat.id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -1013,8 +1025,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes\nSET clase_corregida = '{{ $node[\"HTTP Request\"].json.clase }}',\n    confianza        = {{ $node[\"HTTP Request\"].json.confianza }},\n    subclase         = NULLIF('{{ $node[\"HTTP Request\"].json.categoria }}', 'pendiente'),\n    telegram_username = '{{ $('Telegram Trigger').item.json.message.from.username || $('Telegram Trigger').item.json.message.from.first_name }}',\n    foto_url         = CASE\n        WHEN '{{ $node[\"Descargar foto\"].json.file_path }}' NOT IN ('undefined','null','')\n        THEN '{{ $node[\"Descargar foto\"].json.file_path }}'\n        ELSE foto_id\n    END\nWHERE chat_id = {{ $('Telegram Trigger').item.json.message.chat.id }}\n  AND estado = 'completado';",
-        "options": {}
+        "query": "UPDATE reportes\nSET clase_corregida = $1,\n    confianza        = $2,\n    subclase         = NULLIF($3, 'pendiente'),\n    telegram_username = $4,\n    foto_url         = CASE\n        WHEN COALESCE($5, '') NOT IN ('undefined','null','')\n        THEN $5\n        ELSE foto_id\n    END\nWHERE chat_id = $6\n  AND estado = 'completado';",
+        "options": {
+          "queryReplacement": "={{ [$node[\"HTTP Request\"].json.clase, $node[\"HTTP Request\"].json.confianza, $node[\"HTTP Request\"].json.categoria, $('Telegram Trigger').item.json.message.from.username || $('Telegram Trigger').item.json.message.from.first_name, $node[\"Descargar foto\"].json.file_path || '', $('Telegram Trigger').item.json.message.chat.id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -1034,8 +1048,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "DELETE FROM reportes\nWHERE chat_id = {{ $json.callback_query.message.chat.id }}\n  AND estado NOT IN ('validado', 'corregido_por_humano');\nSELECT 'cancelado' AS resultado;",
-        "options": {}
+        "query": "DELETE FROM reportes\nWHERE chat_id = $1\n  AND estado NOT IN ('validado', 'corregido_por_humano');\nSELECT 'cancelado' AS resultado;",
+        "options": {
+          "queryReplacement": "={{ [$json.callback_query.message.chat.id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -1118,8 +1134,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id FROM reportes WHERE chat_id = {{ $json.message?.chat?.id || 0 }} AND estado = 'esperando_nombre' LIMIT 1;",
-        "options": {}
+        "query": "SELECT id FROM reportes WHERE chat_id = $1 AND estado = 'esperando_nombre' LIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [$json.message?.chat?.id || 0] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -1139,8 +1157,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE reportes SET clase_corregida = '{{ $(\"Telegram Trigger\").item.json.message.text }}', estado = 'pendiente_correccion', telegram_username = '{{ $(\"Telegram Trigger\").item.json.message.from.username || $(\"Telegram Trigger\").item.json.message.from.first_name }}' WHERE chat_id = {{ $(\"Telegram Trigger\").item.json.message.chat.id }} AND estado = 'esperando_nombre';",
-        "options": {}
+        "query": "UPDATE reportes\nSET clase_corregida = $1,\n    estado = 'pendiente_correccion',\n    telegram_username = $2\nWHERE chat_id = $3\n  AND estado = 'esperando_nombre';",
+        "options": {
+          "queryReplacement": "={{ [$('Telegram Trigger').item.json.message.text, $('Telegram Trigger').item.json.message.from.username || $('Telegram Trigger').item.json.message.from.first_name, $('Telegram Trigger').item.json.message.chat.id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,

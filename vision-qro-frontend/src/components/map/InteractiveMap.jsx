@@ -642,6 +642,7 @@ export default function InteractiveMap() {
     const eliminarReporte = useCallback((id) => {
         fetch(`${API_BASE_URL}/api/v1/reportes/${id}`, {
             method: 'DELETE',
+            headers: { 'X-API-Key': import.meta.env.VITE_ADMIN_API_KEY || '' },
         })
         .then(r => {
             if (!r.ok) throw new Error("No se pudo eliminar el reporte");
