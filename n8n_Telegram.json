@@ -162,7 +162,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "DELETE FROM reportes WHERE chat_id = $1 AND estado = 'esperando_ubicacion';\nINSERT INTO reportes (chat_id, foto_id, estado, telegram_username)\nVALUES ($1, $2, 'esperando_ubicacion', $3);",
+        "query": "DELETE FROM reportes WHERE chat_id = $1 AND estado = 'esperando_ubicacion';\nINSERT INTO reportes (chat_id, foto_id, estado, telegram_username)\nVALUES ($1, $2, 'esperando_ubicacion', $3)\nON CONFLICT (chat_id) WHERE estado = 'esperando_ubicacion'\nDO UPDATE SET foto_id = EXCLUDED.foto_id, telegram_username = EXCLUDED.telegram_username;",
         "options": {
           "queryReplacement": "={{ [$json.message.chat.id, $json.message.photo[$json.message.photo.length - 1].file_id, $json.message.from.username || $json.message.from.first_name] }}"
         }
@@ -225,7 +225,8 @@
           "id": "XaFnB0RjU5Z7dSO9",
           "name": "Telegram account"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -316,7 +317,8 @@
         20288
       ],
       "id": "487edef5-9caf-438a-b223-5ef3e8a2d677",
-      "name": "HTTP Request"
+      "name": "HTTP Request",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -1176,6 +1178,30 @@
           "name": "Postgres account"
         }
       }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "⚠️ Tu reporte quedó registrado en el mapa, pero no pude analizar la imagen en este momento. Quedó como *pendiente de clasificación*. Puedes enviar otra foto si quieres intentarlo de nuevo.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        20944,
+        20480
+      ],
+      "id": "a3f1c9d2-7b64-4e0a-9c55-2d8e61f0b7a1",
+      "name": "Aviso error analisis",
+      "webhookId": "2821469a-ae77-419a-a9e6-c42a8c5933da",
+      "credentials": {
+        "telegramApi": {
+          "id": "XaFnB0RjU5Z7dSO9",
+          "name": "Telegram account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -1272,6 +1298,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Aviso error analisis",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -1280,6 +1313,13 @@
         [
           {
             "node": "Guardar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aviso error analisis",
             "type": "main",
             "index": 0
           }
