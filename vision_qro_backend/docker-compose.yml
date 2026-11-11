@@ -101,6 +101,10 @@ services:
       - YOLO_MODEL_PATH=models/yolo12n.pt
       # Token del bot de Telegram (para construir URLs de fotos)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      # Credenciales del admin del dashboard. Sin valor por defecto: si faltan,
+      # los endpoints protegidos responden 503.
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - API_KEY=${API_KEY}
     volumes:
       - n8n_data:/n8n_data
       # Volumen persistente: el modelo YOLO se descarga UNA sola vez

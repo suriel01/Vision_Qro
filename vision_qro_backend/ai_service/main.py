@@ -1,13 +1,20 @@
 from contextlib import asynccontextmanager
-import secrets
-from fastapi import FastAPI, File, UploadFile, HTTPException, Header
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
+from fastapi.security import APIKeyHeader
+from fastapi import Depends
+from pydantic import BaseModel
 from ultralytics import YOLO
 import httpx
 import io
+import csv
 from PIL import Image
 import os
+import zipfile
+import shutil
+import datetime
+import secrets
 from databases import Database
 
 # --- 1. LIFESPAN ---
@@ -30,7 +37,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -43,13 +50,41 @@ DB_NAME     = os.getenv("POSTGRES_DB", "vision_qro")
 DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
 database = Database(DATABASE_URL)
 
+# --- 3.5 SEGURIDAD ---
+# Sin valores por defecto: si faltan en el entorno, los endpoints protegidos
+# fallan cerrado (503) en lugar de usar un secreto conocido.
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+API_KEY = os.getenv("API_KEY", "")
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+def _require_configured():
+    if not ADMIN_PASSWORD or not API_KEY:
+        raise HTTPException(status_code=503, detail="ADMIN_PASSWORD/API_KEY no configuradas")
+
+def verify_api_key(api_key: str = Depends(api_key_header)):
+    _require_configured()
+    if not api_key or not secrets.compare_digest(api_key, API_KEY):
+        raise HTTPException(status_code=403, detail="No autorizado")
+    return api_key
+
+class LoginRequest(BaseModel):
+    password: str
+
+@app.post("/api/v1/auth")
+async def authenticate(data: LoginRequest):
+    _require_configured()
+    if secrets.compare_digest(data.password, ADMIN_PASSWORD):
+        return {"token": API_KEY, "role": "admin"}
+    raise HTTPException(status_code=401, detail="Contraseña incorrecta")
+
+
 # --- 4. MODELO YOLO ---
 _model_path = os.getenv("YOLO_MODEL_PATH", "models/yolo12n.pt")
 model = YOLO(_model_path)
 
 # --- 5. TELEGRAM ---
 _tg_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-_admin_key = os.getenv("ADMIN_API_KEY", "")
 
 def _build_foto_url(file_path: str | None) -> str | None:
     """
@@ -121,7 +156,7 @@ async def obtener_reportes_mapa():
                 "objeto_detectado": f["clase_corregida"] or "Desconocido",
                 "created_at": f["created_at"].isoformat() if f["created_at"] else None,
                 "confianza":  float(f["confianza"]) if f["confianza"] else None,
-                # No enviamos telegram_username: dato personal, no debe ser público.
+                # telegram_username no se expone: es un dato personal y este endpoint es público.
                 # No enviamos foto_url al frontend; se usa el proxy /api/v1/foto/{id}
                 "tiene_foto": bool(f["foto_url"]),
             })
@@ -171,30 +206,48 @@ async def proxy_foto(reporte_id: int):
 
     try:
         async with httpx.AsyncClient(timeout=12.0) as client:
-            # Determinar URL de descarga
-            if '/' in raw:
-                # Es un file_path directo
-                download_url = f"https://api.telegram.org/file/bot{_tg_token}/{raw}"
-            else:
-                # Es un file_id — resolver con getFile
+            async def resolve_and_download(file_id):
                 get_file = await client.get(
                     f"https://api.telegram.org/bot{_tg_token}/getFile",
-                    params={"file_id": raw}
+                    params={"file_id": file_id}
                 )
                 data = get_file.json()
                 if not data.get("ok"):
                     raise HTTPException(status_code=404, detail="file_id no encontrado en Telegram")
                 file_path = data["result"]["file_path"]
-                download_url = f"https://api.telegram.org/file/bot{_tg_token}/{file_path}"
+                dl_url = f"https://api.telegram.org/file/bot{_tg_token}/{file_path}"
                 # Actualizar foto_url en DB con el path resuelto para la próxima vez
                 await database.execute(
                     "UPDATE reportes SET foto_url = :fp WHERE id = :id",
                     values={"fp": file_path, "id": reporte_id}
                 )
+                r = await client.get(dl_url)
+                if r.status_code != 200:
+                    raise HTTPException(status_code=404, detail="Foto no encontrada tras resolver")
+                return r
 
-            resp = await client.get(download_url)
-            if resp.status_code != 200:
-                raise HTTPException(status_code=404, detail="Foto no encontrada")
+            # Determinar URL de descarga
+            if raw and raw.startswith("local/"):
+                local_path = os.path.join("/app/uploads", raw.replace("local/", ""))
+                if os.path.exists(local_path):
+                    with open(local_path, "rb") as f_local:
+                        return Response(content=f_local.read(), media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
+                else:
+                    raise HTTPException(status_code=404, detail="Foto local no encontrada")
+            elif '/' in raw:
+                # Es un file_path directo
+                download_url = f"https://api.telegram.org/file/bot{_tg_token}/{raw}"
+                resp = await client.get(download_url)
+                if resp.status_code != 200:
+                    # El file_path expiró (Telegram los expira en 1 hora)
+                    if row["foto_id"]:
+                        resp = await resolve_and_download(row["foto_id"])
+                    else:
+                        raise HTTPException(status_code=404, detail="Foto expirada y sin foto_id de respaldo")
+            else:
+                # Es un file_id — resolver con getFile
+                resp = await resolve_and_download(raw)
+
             return Response(
                 content=resp.content,
                 media_type=resp.headers.get("content-type", "image/jpeg"),
@@ -243,15 +296,146 @@ async def predict(file: UploadFile = File(...)):
 
 
 @app.delete("/api/v1/reportes/{reporte_id}")
-async def eliminar_reporte(reporte_id: int, x_api_key: str | None = Header(default=None)):
-    # Falla cerrado: sin ADMIN_API_KEY configurada nadie puede borrar.
-    if not _admin_key:
-        raise HTTPException(status_code=503, detail="ADMIN_API_KEY no configurada")
-    if not x_api_key or not secrets.compare_digest(x_api_key, _admin_key):
-        raise HTTPException(status_code=401, detail="No autorizado")
+async def eliminar_reporte(reporte_id: int, token: str = Depends(verify_api_key)):
     try:
         query = "DELETE FROM reportes WHERE id = :id"
         await database.execute(query=query, values={"id": reporte_id})
         return {"status": "success", "message": f"Reporte {reporte_id} eliminado."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/reportes/exportar")
+async def exportar_reportes(token: str = Depends(verify_api_key)):
+    query = """
+        SELECT id, latitud, longitud, clase_corregida, subclase, confianza, descripcion,
+               telegram_username, estado, created_at
+        FROM reportes
+        ORDER BY created_at DESC
+    """
+    filas = await database.fetch_all(query=query)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    if filas:
+        writer.writerow(filas[0].keys())
+        for f in filas:
+            writer.writerow(f.values())
+            
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]), 
+        media_type="text/csv", 
+        headers={"Content-Disposition": "attachment; filename=reportes_vision_qro.csv"}
+    )
+@app.delete("/api/v1/reportes-todos")
+async def eliminar_todos_reportes(token: str = Depends(verify_api_key)):
+    try:
+        await database.execute("TRUNCATE TABLE reportes RESTART IDENTITY")
+        if os.path.exists("/app/uploads/fotos"):
+            shutil.rmtree("/app/uploads/fotos")
+        os.makedirs("/app/uploads/fotos", exist_ok=True)
+        return {"status": "success", "message": "Todos los reportes eliminados."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/reportes/exportar-zip")
+async def exportar_reportes_zip(token: str = Depends(verify_api_key)):
+    query = "SELECT * FROM reportes ORDER BY created_at DESC"
+    filas = await database.fetch_all(query=query)
+    
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        csv_buffer = io.StringIO()
+        writer = csv.writer(csv_buffer)
+        if filas:
+            writer.writerow(filas[0].keys())
+            for f in filas:
+                writer.writerow(f.values())
+        zip_file.writestr("reportes.csv", csv_buffer.getvalue())
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for f in filas:
+                foto_id = f["foto_id"]
+                raw = f["foto_url"] or foto_id
+                if not raw: continue
+                
+                if raw.startswith("local/"):
+                    local_path = os.path.join("/app/uploads", raw.replace("local/", ""))
+                    if os.path.exists(local_path):
+                        zip_file.write(local_path, f"fotos/reporte_{f['id']}.jpg")
+                else:
+                    try:
+                        file_path = raw
+                        if '/' not in file_path:
+                            get_file = await client.get(f"https://api.telegram.org/bot{_tg_token}/getFile", params={"file_id": file_path})
+                            data = get_file.json()
+                            if data.get("ok"): file_path = data["result"]["file_path"]
+                        if '/' in file_path:
+                            dl_url = f"https://api.telegram.org/file/bot{_tg_token}/{file_path}"
+                            r = await client.get(dl_url)
+                            if r.status_code == 200:
+                                zip_file.writestr(f"fotos/reporte_{f['id']}.jpg", r.content)
+                            elif f["foto_id"]:
+                                get_file = await client.get(f"https://api.telegram.org/bot{_tg_token}/getFile", params={"file_id": f["foto_id"]})
+                                data = get_file.json()
+                                if data.get("ok"):
+                                    file_path = data["result"]["file_path"]
+                                    dl_url = f"https://api.telegram.org/file/bot{_tg_token}/{file_path}"
+                                    r = await client.get(dl_url)
+                                    if r.status_code == 200:
+                                        zip_file.writestr(f"fotos/reporte_{f['id']}.jpg", r.content)
+                    except: pass
+    zip_buffer.seek(0)
+    return StreamingResponse(iter([zip_buffer.getvalue()]), media_type="application/zip", headers={"Content-Disposition": "attachment; filename=respaldo.zip"})
+
+@app.post("/api/v1/reportes/importar-zip")
+async def importar_reportes_zip(file: UploadFile = File(...), token: str = Depends(verify_api_key)):
+    try:
+        content = await file.read()
+        zip_buffer = io.BytesIO(content)
+        with zipfile.ZipFile(zip_buffer, "r") as zip_file:
+            os.makedirs("/app/uploads/fotos", exist_ok=True)
+            for name in zip_file.namelist():
+                if name.startswith("fotos/") and not name.endswith("/"):
+                    extracted_path = os.path.join("/app/uploads", name)
+                    os.makedirs(os.path.dirname(extracted_path), exist_ok=True)
+                    with open(extracted_path, "wb") as f_out:
+                        f_out.write(zip_file.read(name))
+            
+            if "reportes.csv" in zip_file.namelist():
+                csv_content = zip_file.read("reportes.csv").decode("utf-8")
+                reader = csv.DictReader(io.StringIO(csv_content))
+                for row in reader:
+                    foto_url = row.get("foto_url")
+                    foto_path = f"fotos/reporte_{row['id']}.jpg"
+                    if foto_path in zip_file.namelist():
+                        foto_url = f"local/{foto_path}"
+                    
+                    query = "INSERT INTO reportes (id, latitud, longitud, clase_corregida, subclase, confianza, descripcion, foto_url, telegram_user_id, telegram_username, chat_id, foto_id, estado, created_at) VALUES (:id, :latitud, :longitud, :clase_corregida, :subclase, :confianza, :descripcion, :foto_url, :telegram_user_id, :telegram_username, :chat_id, :foto_id, :estado, :created_at) ON CONFLICT (id) DO NOTHING"
+                    values = {
+                        "id": int(row["id"]) if row.get("id") else None,
+                        "latitud": float(row["latitud"]) if row.get("latitud") else None,
+                        "longitud": float(row["longitud"]) if row.get("longitud") else None,
+                        "clase_corregida": row.get("clase_corregida"),
+                        "subclase": row.get("subclase"),
+                        "confianza": float(row["confianza"]) if row.get("confianza") else None,
+                        "descripcion": row.get("descripcion"),
+                        "foto_url": foto_url,
+                        "telegram_user_id": int(row["telegram_user_id"]) if row.get("telegram_user_id") else None,
+                        "telegram_username": row.get("telegram_username"),
+                        "chat_id": int(row["chat_id"]) if row.get("chat_id") else None,
+                        "foto_id": row.get("foto_id"),
+                        "estado": row.get("estado"),
+                        "created_at": row.get("created_at") if row.get("created_at") else None
+                    }
+                    try:
+                        await database.execute(query=query, values=values)
+                    except Exception as e:
+                        print(f"Error: {e}")
+                
+                try:
+                    await database.execute("SELECT setval('reportes_id_seq', (SELECT MAX(id) FROM reportes));")
+                except: pass
+        return {"status": "success", "message": "Importación completada."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
